@@ -8,7 +8,10 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    # The lockfile needs pnpm 10 (older pnpm rejects its overrides, and pnpm 9
+    # also drops devDependencies under NODE_ENV=production). Corepack activates
+    # the version pinned in package.json's packageManager field.
+    buildCommand: corepack enable pnpm && pnpm install --frozen-lockfile && pnpm build
     # Migrations are idempotent and lock-guarded, so every boot can apply them.
     startCommand: pnpm db:migrate && pnpm start
     healthCheckPath: /api/healthz

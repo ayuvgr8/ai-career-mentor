@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { useConversation } from '@elevenlabs/react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConversationProvider, useConversation } from '@elevenlabs/react';
 import { LoaderCircle, Mic, MicOff, PhoneOff } from 'lucide-react';
 
 type Line = { source: 'user' | 'agent'; text: string };
@@ -93,27 +93,47 @@ export function VoiceMentorView({ state, connected, speaking, error, lines, onSt
   );
 }
 
-export function VoiceMentor() {
+function micBlocked(message: string) {
+  return /denied|permission|notallowed/i.test(message);
+}
+
+function VoiceMentorSession() {
   const [state, setState] = useState<VoiceState>('idle');
   const [error, setError] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const alive = useRef(true);
+  // Blocks a second mint while one is in flight (double-clicks fire before the button disables).
+  const starting = useRef(false);
+  useEffect(() => () => { alive.current = false; }, []);
 
   const conversation = useConversation({
-    onMessage: (event: { message?: string; source?: string }) => {
+    onConnect: () => {
+      if (alive.current) setState('connected');
+    },
+    onDisconnect: (details) => {
+      if (!alive.current) return;
+      setState((prev) => (prev === 'error' ? prev : 'idle'));
+      if (details.reason === 'error') setError('The voice connection dropped. You can start it again.');
+    },
+    onMessage: (event) => {
       const text = typeof event.message === 'string' ? event.message.trim() : '';
       if (!text || !alive.current) return;
       const source = event.source === 'user' ? 'user' : 'agent';
       setLines((prev) => [...prev.slice(-40), { source, text }]);
     },
-    onError: () => {
+    // startSession() reports connect and microphone failures here, not by throwing.
+    onError: (message) => {
       if (!alive.current) return;
       setState('error');
-      setError('The voice connection dropped. You can start it again.');
+      setError(micBlocked(message)
+        ? 'Microphone access was blocked. Allow the mic in your browser and try again.'
+        : 'The voice connection dropped. You can start it again.');
     },
   });
 
   const start = useCallback(async () => {
+    if (starting.current) return;
+    starting.current = true;
     setError('');
     setLines([]);
     setState('starting');
@@ -121,28 +141,20 @@ export function VoiceMentor() {
       const signedUrl = await fetchSignedUrl();
       // signedUrl selects a WebSocket connection in the ElevenLabs client
       // (their get-signed-url endpoint supports WebSocket transport only).
-      await conversation.startSession({ signedUrl });
-      if (alive.current) setState('connected');
+      conversation.startSession({ signedUrl });
     } catch (err) {
       if (!alive.current) return;
       const message = err instanceof Error ? err.message : '';
-      if (message === 'sign-in') {
-        setError('Sign in first, then start the voice mentor.');
-      } else if (/denied|permission|notallowed/i.test(message)) {
-        setError('Microphone access was blocked. Allow the mic in your browser and try again.');
-      } else {
-        setError(message || 'Could not start the voice mentor.');
-      }
+      setError(message === 'sign-in' ? 'Sign in first, then start the voice mentor.' : message || 'Could not start the voice mentor.');
       setState('error');
+    } finally {
+      starting.current = false;
     }
   }, [conversation]);
 
-  const stop = useCallback(async () => {
-    try {
-      await conversation.endSession();
-    } finally {
-      if (alive.current) setState('idle');
-    }
+  const stop = useCallback(() => {
+    conversation.endSession();
+    setState('idle');
   }, [conversation]);
 
   const connected = state === 'connected' && conversation.status === 'connected';
@@ -158,5 +170,14 @@ export function VoiceMentor() {
       onStart={start}
       onStop={stop}
     />
+  );
+}
+
+/** @elevenlabs/react 1.x hooks must render inside a ConversationProvider. */
+export function VoiceMentor() {
+  return (
+    <ConversationProvider>
+      <VoiceMentorSession />
+    </ConversationProvider>
   );
 }

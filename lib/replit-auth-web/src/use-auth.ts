@@ -52,7 +52,12 @@ export function useAuth(): AuthState {
 
   const logout = useCallback(() => {
     const base = getBasePath();
-    window.location.href = `/api/logout?returnTo=${encodeURIComponent(base)}`;
+    void fetch(`/api/logout?returnTo=${encodeURIComponent(base)}`, { method: 'POST', credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Sign-out failed.');
+        const data = await res.json() as { redirectTo: string };
+        window.location.assign(data.redirectTo);
+      }).catch(() => window.alert('Sign-out could not finish. Please try again.'));
   }, []);
 
   return {

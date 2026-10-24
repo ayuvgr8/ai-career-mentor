@@ -29,6 +29,7 @@ export const landing = {
     stats: [
       { value: '4', label: 'careers to explore' },
       { value: '9 hrs', label: 'illustrative workday preview' },
+      { value: '2 weeks', label: 'starter plan' },
     ],
     cta: 'Try a role',
   },

@@ -1,5 +1,6 @@
-import express, { type Express } from "express";
-import cors from "cors";
+import express, { type Express, type ErrorRequestHandler } from "express";
+import path from "node:path";
+import { existsSync } from "node:fs";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -27,12 +28,37 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: true }));
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  if (req.path.startsWith('/api')) res.setHeader('Cache-Control', 'no-store');
+  // Cookie-authenticated writes are same-origin only, including the optional guest session.
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const origin = req.get('origin');
+    const expected = process.env.APP_ORIGIN ? new URL(process.env.APP_ORIGIN).origin : `${req.protocol}://${req.get('host')}`;
+    if (req.get('sec-fetch-site') === 'cross-site' || (origin && origin !== expected)) { res.status(403).json({ error: 'Cross-origin requests are not allowed.' }); return; }
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: "8mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(authMiddleware);
 
 app.use("/api", router);
+app.use('/api', (_req, res) => { res.status(404).json({ error: 'Endpoint not found.' }); });
+const publicDir = path.resolve(import.meta.dirname, '../../career-mentor/dist/public');
+if (existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get('/{*path}', (_req, res) => { res.sendFile(path.join(publicDir, 'index.html')); });
+}
+const handleError: ErrorRequestHandler = (error, req, res, _next) => {
+  req.log.error({ errorName: error instanceof Error ? error.name : 'Error' }, 'Request failed');
+  if (res.headersSent) { _next(error); return; }
+  const status = error?.type === 'entity.too.large' ? 413 : error instanceof SyntaxError ? 400 : 503;
+  res.status(status).json({ error: status === 413 ? 'Request is too large.' : status === 400 ? 'Invalid JSON request.' : 'This service is temporarily unavailable. Please try again.' });
+};
+app.use(handleError);
 
 export default app;

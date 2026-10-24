@@ -53,3 +53,10 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local credentials and browser-test artifacts
+.env
+.env.*
+!.env.example
+playwright-report/
+test-results/

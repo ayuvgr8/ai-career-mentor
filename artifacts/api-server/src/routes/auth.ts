@@ -4,6 +4,8 @@ import {
 import { db, usersTable } from '@workspace/db';
 import { Router, type IRouter, type Request, type Response } from 'express';
 import * as oidc from 'openid-client';
+import { randomUUID } from 'node:crypto';
+import { requestLimit } from '../middlewares/requestLimits';
 
 import {
   clearSession,
@@ -20,6 +22,7 @@ const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 const router: IRouter = Router();
 
 function getOrigin(req: Request): string {
+  if (process.env.APP_ORIGIN) return new URL(process.env.APP_ORIGIN).origin;
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host =
     req.headers['x-forwarded-host'] || req.headers['host'] || 'localhost';
@@ -29,7 +32,7 @@ function getOrigin(req: Request): string {
 function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: SESSION_TTL,
@@ -39,7 +42,7 @@ function setSessionCookie(res: Response, sid: string) {
 function setOidcCookie(res: Response, name: string, value: string) {
   res.cookie(name, value, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: OIDC_COOKIE_TTL,
@@ -50,7 +53,7 @@ function getSafeReturnTo(value: unknown): string {
   if (
     typeof value !== 'string' ||
     !value.startsWith('/') ||
-    value.startsWith('//')
+    value.startsWith('//') || value.includes('\\') || /[\r\n]/.test(value)
   ) {
     return '/';
   }
@@ -90,7 +93,22 @@ router.get('/auth/user', (req: Request, res: Response) => {
   );
 });
 
+router.get('/auth/config', (_req, res) => {
+  res.json({ mode: process.env.AUTH_MODE === 'anonymous' ? 'anonymous' : 'replit', available: process.env.AUTH_MODE === 'anonymous' || Boolean(process.env.REPL_ID) });
+});
+
+router.post('/auth/anonymous', requestLimit(5, 3600000), async (req, res) => {
+  if (process.env.AUTH_MODE !== 'anonymous') { res.status(404).json({ error: 'Device-only access is disabled.' }); return; }
+  if (req.body?.consent !== true) { res.status(400).json({ error: 'Accept the device-only access limitation first.' }); return; }
+  if (req.isAuthenticated()) { res.json({ success: true }); return; }
+  const [user] = await db.insert(usersTable).values({ id: `anon-${randomUUID()}`, firstName: 'Private explorer' }).returning();
+  const sid = await createSession({ user: { id: user.id, email: null, firstName: user.firstName, lastName: null, profileImageUrl: null }, access_token: '' });
+  setSessionCookie(res, sid);
+  res.json({ success: true });
+});
+
 router.get('/login', async (req: Request, res: Response) => {
+  if (!process.env.REPL_ID || process.env.AUTH_MODE === 'anonymous') { res.status(503).json({ error: 'Account sign-in is not configured. Return to the app for access options.' }); return; }
   const config = await getOidcConfig();
   const callbackUrl = `${getOrigin(req)}/api/callback`;
 
@@ -185,7 +203,12 @@ router.get('/callback', async (req: Request, res: Response) => {
   res.redirect(returnTo);
 });
 
-router.get('/logout', async (req: Request, res: Response) => {
+router.post('/logout', async (req: Request, res: Response) => {
+  if (process.env.AUTH_MODE === 'anonymous') {
+    await clearSession(res, getSessionId(req));
+    res.json({ redirectTo: '/' });
+    return;
+  }
   const config = await getOidcConfig();
   const origin = getOrigin(req);
   const returnTo = getSafeReturnTo(req.query.returnTo);
@@ -199,7 +222,7 @@ router.get('/logout', async (req: Request, res: Response) => {
     post_logout_redirect_uri: postLogoutRedirectUrl,
   });
 
-  res.redirect(endSessionUrl.href);
+  res.json({ redirectTo: endSessionUrl.href });
 });
 
 export default router;

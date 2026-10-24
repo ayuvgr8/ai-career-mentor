@@ -54,7 +54,9 @@ export const LogoutBrowserSessionQueryParams = zod.object({
   "returnTo": zod.coerce.string().optional()
 })
 
-export const LogoutBrowserSessionResponse = zod.void()
+export const LogoutBrowserSessionResponse = zod.object({
+  "redirectTo": zod.string()
+})
 
 
 /**

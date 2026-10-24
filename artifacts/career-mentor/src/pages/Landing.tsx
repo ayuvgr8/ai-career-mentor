@@ -1,16 +1,33 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { landing as c } from '@/content/landing';
 import './Landing.css';
 
 function loginHref(): string {
-  const base = document.querySelector('meta[name="app-base-path"]')?.getAttribute('content') || '/';
-  return `/api/login?returnTo=${encodeURIComponent(base)}`;
+  // Keep CTAs on the app's real sign-in screen. It owns provider redirects,
+  // anonymous-device mode, loading states, and the return path consistently.
+  return '/onboarding';
 }
 
 function Landing() {
   const login = loginHref();
   useEffect(() => {
     document.documentElement.classList.add('lp-mounted');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const revealNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+    let observer: IntersectionObserver | undefined;
+
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+      revealNodes.forEach((node) => node.classList.add('is-visible'));
+    } else {
+      document.documentElement.classList.add('lp-motion');
+      observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          entry.target.classList.toggle('is-visible', entry.isIntersecting);
+        });
+      }, { rootMargin: '0px 0px -12% 0px', threshold: 0.12 });
+      revealNodes.forEach((node) => observer?.observe(node));
+    }
+
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500&family=Inter:wght@400;500;600&display=swap';
@@ -18,6 +35,8 @@ function Landing() {
     document.head.appendChild(link);
     return () => {
       document.documentElement.classList.remove('lp-mounted');
+      document.documentElement.classList.remove('lp-motion');
+      observer?.disconnect();
       link.remove();
     };
   }, []);
@@ -56,27 +75,29 @@ function Landing() {
           </div>
           <div className="clouds" aria-hidden="true" />
         </section>
-        <section className="wrap intro">
+        <section className="wrap intro" data-reveal="rise">
           <p className="micro eyebrow">{c.intro.eyebrow}</p>
           <h1><span className="u p">{c.intro.headlineA}</span> <span className="u b">{c.intro.headlineB}</span>{c.intro.headlineEnd}</h1>
           <p className="support">{c.intro.support}</p>
-          <div className="stats">
-            {c.intro.stats.map((s) => <div className="stat" key={s.label}><b>{s.value}</b><span className="micro">{s.label}</span></div>)}
+          <div className="intro-side">
+            <div className="stats">
+              {c.intro.stats.map((s) => <div className="stat" key={s.label}><b>{s.value}</b><span className="micro">{s.label}</span></div>)}
+            </div>
+            <a href={login} className="pill white intro-cta" data-testid="link-landing-intro-try">{c.intro.cta}</a>
           </div>
-          <a href={login} className="pill white intro-cta" data-testid="link-landing-intro-try">{c.intro.cta}</a>
         </section>
-        <section className="wrap sec" id="how">
+        <section className="wrap sec" id="how" data-reveal="clip">
           <h2 className="t">{c.how.title}</h2>
           <ol className="steps">
-            {c.how.steps.map((s) => <li className="step" key={s.n}><div className="n" aria-hidden="true">{s.n}</div><h3>{s.title}</h3><p>{s.line}</p></li>)}
+            {c.how.steps.map((s, i) => <li className="step" data-reveal="rise" style={{ '--reveal-delay': `${i * 90}ms` } as CSSProperties} key={s.n}><div className="n" aria-hidden="true">{s.n}</div><h3>{s.title}</h3><p>{s.line}</p></li>)}
           </ol>
           <p className="note">{c.how.note}</p>
         </section>
-        <section className="wrap sec" id="paths">
+        <section className="wrap sec" id="paths" data-reveal="scale">
           <h2 className="t">{c.paths.title}</h2>
           <div className="two">
-            {c.paths.cards.map((p) => (
-              <article className="path" key={p.label}>
+            {c.paths.cards.map((p, i) => (
+              <article className="path" data-reveal="rise" style={{ '--reveal-delay': `${i * 90}ms` } as CSSProperties} key={p.label}>
                 <h3>{p.label}</h3>
                 <ul>{p.points.map((pt) => <li key={pt}>{pt}</li>)}</ul>
                 <a href={login} className="pill" data-testid={`link-landing-start-${p.label.toLowerCase().replace(/\s+/g, '-')}`}>{p.cta}</a>

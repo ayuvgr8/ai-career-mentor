@@ -29,6 +29,9 @@ import NotFound from '@/pages/not-found';
 import Landing from '@/pages/Landing';
 import { RoleMentorChat } from '@/components/RoleMentorChat';
 import { RoleCompare } from '@/components/RoleCompare';
+import { TwoWeekPlan } from '@/components/TwoWeekPlan';
+import { DesignerDay } from '@/components/DesignerDay';
+import { RoleConnection } from '@/components/RoleConnection';
 
 const queryClient = new QueryClient();
 
@@ -111,41 +114,57 @@ function Frame({ children, active = '' }: { children: ReactNode; active?: string
       </nav>
       <span className="hidden max-w-40 truncate text-sm text-muted-foreground lg:block" data-testid="text-account">{user?.firstName || user?.email || 'Your private space'}</span>
     </header>
-    <main className="mx-auto max-w-7xl px-5 pb-20 pt-5 sm:px-8">{children}</main>
-    <footer className="mx-auto flex max-w-7xl items-center gap-2 px-5 pb-8 text-xs text-muted-foreground sm:px-8"><LockKeyhole size={13} /> Your answers stay private to your account and aren’t used to train this app.</footer>
+    <main className="mx-auto max-w-7xl px-5 pb-20 pt-5 sm:px-8">{user?.id.startsWith('anon-') && <div className="mb-6"><Alert kind="info">Device-only access: signing out, clearing cookies, or session expiry permanently loses access. No recovery or cross-device sync. Delete your data in Settings before leaving if desired.</Alert></div>}{children}</main>
+    <footer className="mx-auto flex max-w-7xl items-center gap-2 px-5 pb-8 text-xs text-muted-foreground sm:px-8"><LockKeyhole size={13} /> This app does not train on your answers. AI processing follows the configured provider’s retention policy. Human review requires your separate consent.</footer>
   </div>;
 }
 
 function SignIn() {
   const { login, isLoading } = useAuth();
-  return <div className="paper-grain min-h-[100dvh] overflow-hidden">
-    <div className="mx-auto grid min-h-[100dvh] max-w-7xl items-center gap-12 px-5 py-8 md:grid-cols-[1fr_.9fr] md:px-10">
-      <section className="fade-up relative z-10 mx-auto w-full max-w-lg">
-        <Brand />
-        <p className="mono mt-16 text-[10px] uppercase tracking-[.2em] text-primary">A quieter kind of career guidance</p>
-        <h1 className="serif mt-5 text-[clamp(3.4rem,8vw,6.8rem)] leading-[.91] tracking-[-.035em] text-foreground">Try on a<br /><em className="text-primary">future.</em></h1>
-        <p className="mt-7 max-w-md text-lg leading-8 text-muted-foreground">A private space to explore work that might fit you — before you have to choose.</p>
-        <Button onClick={login} disabled={isLoading} className="mt-9 min-w-48" data-testid="button-sign-in">{isLoading ? <LoaderCircle className="animate-spin" size={17} /> : <>Continue to your space <ArrowRight size={17} /></>}</Button>
-        <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole size={14} /> Sign in securely. No hiring portal, no public profile.</div>
-      </section>
-      <aside className="relative hidden min-h-[620px] items-center justify-center md:flex">
-        <div className="absolute inset-8 rotate-[-4deg] rounded-[42%_58%_56%_44%/52%_39%_61%_48%] bg-[#e8d9b7]" />
-        <div className="absolute inset-16 rotate-[7deg] rounded-[51%_49%_42%_58%/40%_52%_48%_60%] border border-[#c6b98f]" />
-        <div className="relative flex h-[440px] w-[400px] flex-col justify-between rounded-[2.5rem] border border-white/70 bg-[#f7f0df]/90 p-8 shadow-[0_30px_90px_-45px_rgba(57,67,48,.36)] backdrop-blur-sm">
-          <div className="flex items-start justify-between"><span className="mono text-[10px] uppercase tracking-[.18em] text-primary">field notes / 01</span><Sparkles className="text-[hsl(var(--accent))]" size={19} /></div>
-          <div className="relative mx-auto grid h-48 w-48 place-items-center rounded-full border border-primary/30">
-            <div className="absolute h-36 w-36 rounded-full bg-[#d9a56f]/55" />
-            <div className="absolute h-24 w-24 translate-x-8 translate-y-6 rounded-full bg-[#547c6e]/80" />
-            <div className="absolute h-16 w-16 -translate-x-9 -translate-y-8 rounded-full bg-[#f0d982]" />
-            <span className="serif relative mt-32 text-2xl italic text-primary">possibility</span>
-          </div>
-          <div><p className="serif text-3xl leading-tight">There is more than<br />one good way forward.</p><div className="mt-5 flex items-center justify-between text-xs text-muted-foreground"><span>Made for your becoming</span><span className="mono">IN · 2025</span></div></div>
-        </div>
-        <div className="absolute right-0 top-20 rounded-full border border-border bg-card/90 px-4 py-2 text-xs text-primary shadow-sm">Curiosity before commitment</div>
-        <div className="absolute bottom-14 left-0 rounded-full bg-primary px-4 py-2 text-xs text-primary-foreground shadow-sm">Your pace. Your path.</div>
-      </aside>
-    </div>
-  </div>;
+  const [config, setConfig] = useState<{ mode: string; available: boolean } | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [configAttempt, setConfigAttempt] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    setConfig(null);
+    setError('');
+    fetch('/api/auth/config', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<{ mode: string; available: boolean }>;
+      })
+      .then(setConfig)
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setError('The app server is not reachable. Start Rolevo with `pnpm dev`, then try again.');
+        }
+      });
+    return () => controller.abort();
+  }, [configAttempt]);
+  const enter = async () => {
+    if (config?.mode !== 'anonymous') { login(); return; }
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/auth/anonymous', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ consent: accepted }) });
+      if (!response.ok) throw new Error();
+      window.location.assign('/');
+    } catch { setError('Could not open your space. Please try again.'); setBusy(false); }
+  };
+  return <main className="paper-grain grid min-h-[100dvh] place-items-center px-5 py-12">
+    <section className="w-full max-w-md rounded-[2rem] border border-border bg-card p-7 sm:p-10">
+      <Brand />
+      <h1 className="serif mt-9 text-4xl">Your career, considered.</h1>
+      <p className="mt-4 leading-7 text-muted-foreground">Explore work, ask a mentor, and try a small two-week plan. Initial testing is for adults (18+).</p>
+      {config?.mode === 'anonymous' ? <label className="mt-6 flex items-start gap-3 rounded-2xl bg-secondary p-4 text-sm leading-6"><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-1" />I understand this is device-only access, not an account. Clearing cookies, signing out, or the seven-day session expiring loses access permanently. No recovery or cross-device sync.</label> : <p className="mt-6 text-sm text-muted-foreground">Sign in securely with Replit to return to your saved profile.</p>}
+      {config && !config.available && <div className="mt-5"><Alert>Sign-in is not configured yet. The operator needs to connect Replit Auth.</Alert></div>}
+      {error && <div className="mt-5 space-y-3"><Alert>{error}</Alert><Button variant="outline" className="w-full" onClick={() => setConfigAttempt((attempt) => attempt + 1)}>Retry access check</Button></div>}
+      <Button className="mt-7 w-full" onClick={enter} disabled={isLoading || busy || !config?.available || (config?.mode === 'anonymous' && !accepted)} data-testid="button-sign-in">{busy ? 'Opening…' : config?.mode === 'anonymous' ? 'Continue on this device' : 'Sign in'}</Button>
+      <p className="mt-5 text-xs leading-5 text-muted-foreground">Only confirmed profiles and plans are saved. AI requests are processed by the configured provider; its retention policy applies. Voice is not enabled.</p>
+      <Link href="/about" className="mt-5 inline-block text-sm text-primary">About Rolevo</Link>
+    </section>
+  </main>;
 }
 
 function Welcome({ profile, loading, error, onRetry }: { profile: CareerProfileInput | null; loading: boolean; error?: boolean; onRetry: () => void }) {
@@ -352,17 +371,8 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
     if (!question || !answer.trim()) return;
     const updatedAnswers = [...answers, { topic: question.topic || `reflection-${answers.length + 1}`, answer: answer.trim() }].slice(-7);
     setAnswers(updatedAnswers);
-    // Keep structured draft fields in memory only; answers are intentionally not persisted until profile confirmation.
-    const topic = (question.topic || '').toLowerCase();
-    const nextDraft = { ...draft };
-    if (topic.includes('interest')) nextDraft.interests = parts;
-    else if (topic.includes('energ')) nextDraft.energizers = parts;
-    else if (topic.includes('strength')) nextDraft.strengths = parts;
-    else if (topic.includes('style')) nextDraft.workStyle = answer.trim();
-    else if (topic.includes('money')) nextDraft.moneyNeeds = answer.trim();
-    else if (topic.includes('family')) nextDraft.familyExpectations = answer.trim();
-    setDraft(nextDraft);
-    requestQuestion(updatedAnswers, nextDraft);
+    // Combined topics must be synthesized into the correct fields, not guessed by substring.
+    requestQuestion(updatedAnswers, draft);
   };
   return <Frame>
     <div className="mx-auto max-w-3xl pt-4">
@@ -387,12 +397,13 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
 
 function ProfileReview({ draft, setDraft, onSaved }: { draft: CareerProfileInput; setDraft: (d: CareerProfileInput) => void; onSaved: () => void }) {
   const saveProfile = useSaveCareerProfile();
+  const [listValues, setListValues] = useState(() => ({ internships: draft.internships.join(', '), interests: draft.interests.join(', '), energizers: draft.energizers.join(', '), chores: draft.chores.join(', '), strengths: draft.strengths.join(', '), constraints: draft.constraints.join(', ') }));
   const [error, setError] = useState('');
   const update = (key: keyof CareerProfileInput, value: string) => {
     const nullable = ['ageBand', 'currentStage', 'company', 'yearsExperience', 'familyExpectations', 'moneyNeeds', 'relocation'].includes(key);
     setDraft({ ...draft, [key]: nullable ? value || null : value });
   };
-  const listField = (label: string, key: 'interests' | 'energizers' | 'chores' | 'strengths' | 'constraints') => <Field label={label} name={`review-${key}`} value={draft[key].join(', ')} onChange={(value) => setDraft({ ...draft, [key]: value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Separate a few with commas" />;
+  const listField = (label: string, key: keyof typeof listValues) => <Field label={label} name={`review-${key}`} value={listValues[key]} onChange={(value) => { setListValues((current) => ({ ...current, [key]: value })); setDraft({ ...draft, [key]: value.split(',').map((item) => item.trim()).filter(Boolean) }); }} placeholder="Separate a few with commas" />;
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -413,6 +424,7 @@ function ProfileReview({ draft, setDraft, onSaved }: { draft: CareerProfileInput
             <label className="block space-y-2"><span className="text-sm font-semibold">Age band · optional</span><select data-testid="input-review-age-band" value={draft.ageBand || ''} onChange={(e) => update('ageBand', e.target.value)} className="w-full rounded-2xl border border-border bg-card px-4 py-3.5"><option value="">Prefer not to say</option><option value="under-18">Under 18</option><option value="18-21">18–21</option><option value="22-25">22–25</option><option value="26-30">26–30</option><option value="31+">31+</option></select></label>
             <label className="block space-y-2"><span className="text-sm font-semibold">Your current season</span><select data-testid="input-review-persona" value={draft.persona} onChange={(e) => setDraft({ ...draft, persona: e.target.value as Persona })} className="w-full rounded-2xl border border-border bg-card px-4 py-3.5"><option value="student">Student / exploring early steps</option><option value="professional">Working / exploring what’s next</option></select></label>
             <Field label={draft.persona === 'student' ? 'What are you studying?' : 'Current stage'} name="review-stage" value={draft.currentStage || ''} onChange={(v) => update('currentStage', v)} />
+            {listField('Internships / projects', 'internships')}
             {draft.persona === 'professional' && <><Field label="Company" name="review-company" value={draft.company || ''} onChange={(v) => update('company', v)} /><Field label="Years of experience" name="review-experience" value={draft.yearsExperience || ''} onChange={(v) => update('yearsExperience', v)} /></>}
           </div>
         </section>
@@ -494,7 +506,7 @@ function ContentList({ title, items, testId }: { title: string; items: string[];
   return <section className="rounded-[1.5rem] border border-border bg-card/75 p-5 sm:p-6" data-testid={testId}><h3 className="serif text-2xl">{title}</h3><ul className="mt-4 space-y-3">{items.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-muted-foreground" data-testid={`${testId}-item-${index + 1}`}><span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--accent))]" /><span>{item}</span></li>)}</ul></section>;
 }
 
-function RoleDeepDive({ slug }: { slug?: string }) {
+function RoleDeepDive({ slug, profile }: { slug?: string; profile: CareerProfileInput | null }) {
   const roleQuery = useGetCareerRole(slug || '', { query: { enabled: Boolean(slug), queryKey: getGetCareerRoleQueryKey(slug || '') } });
   if (!slug) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert kind="info">Choose a role from the catalog to open its field notes.</Alert><Link href="/roles" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-coming-to-catalog">Back to role catalog <ArrowRight size={15} /></Link></div></Frame>;
   if (roleQuery.isLoading) return <Frame active="/roles"><div className="mx-auto max-w-4xl pt-10" data-testid="status-role-detail-loading"><div className="h-3 w-32 animate-pulse rounded-full bg-secondary" /><div className="mt-5 h-14 w-3/4 animate-pulse rounded-2xl bg-secondary" /><div className="mt-8 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /><div className="mt-4 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /></div></Frame>;
@@ -509,7 +521,7 @@ function RoleDeepDive({ slug }: { slug?: string }) {
       {role.status === 'illustrative' && <span className="mono inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-2 text-[10px] uppercase tracking-[.14em]" data-testid="status-role-illustrative-label">Illustrative first draft</span>}
       <p className="mono mt-7 text-[10px] uppercase tracking-[.18em] text-white/65" data-testid="text-role-detail-family">{role.familyTitle}</p><h1 className="serif mt-3 text-5xl leading-[.98] sm:text-7xl" data-testid="text-role-detail-title">{role.title}</h1><p className="mt-5 max-w-2xl text-base leading-7 text-white/80" data-testid="text-role-detail-summary">{role.summary}</p>
     </div></header>
-    <section className="mt-5 grid gap-4 md:grid-cols-[1.2fr_.8fr]"><div className="rounded-[1.7rem] border border-primary/20 bg-[#e7eee7] p-6 sm:p-8" data-testid="section-role-why-fit"><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">A possible point of connection</p><h2 className="serif mt-3 text-3xl">Why this might fit</h2><p className="mt-3 text-sm leading-7 text-foreground/80" data-testid="text-role-why-fit">{content.whyItFits}</p></div>
+    <section className="mt-5 grid gap-4 md:grid-cols-[1.2fr_.8fr]"><div className="rounded-[1.7rem] border border-primary/20 bg-[#e7eee7] p-6 sm:p-8" data-testid="section-role-why-fit"><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">A possible point of connection</p><h2 className="serif mt-3 text-3xl">Why this might fit</h2><p className="mt-3 text-sm leading-7 text-foreground/80" data-testid="text-role-why-fit">{content.whyItFits}</p>{profile && <RoleConnection key={JSON.stringify(profile)} slug={role.slug} />}</div>
       <div className="flex flex-col justify-between rounded-[1.7rem] border border-border bg-card p-6 sm:p-8"><div className="flex items-center gap-3 text-primary"><Clock3 size={19} /><span className="mono text-[9px] uppercase tracking-[.16em]">A day, in nine beats</span></div><p className="serif mt-5 text-3xl leading-snug">The rhythm of the work.</p><p className="mt-2 text-sm leading-6 text-muted-foreground">An illustrative slice of a day, not a fixed schedule.</p><span className="mono mt-6 text-xs text-primary" data-testid="text-role-day-count">{content.dayInLife.length} time / activity blocks</span></div></section>
     <section className="mt-8" data-testid="section-role-day-in-life"><div className="mb-4 flex items-end justify-between"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">Day in the life</p><h2 className="serif mt-2 text-4xl">A day in nine beats</h2></div><Clock3 className="mb-1 text-primary" size={21} /></div><div className="overflow-hidden rounded-[1.7rem] border border-border bg-card">{content.dayInLife.map((block, index) => <div key={`${block.time}-${index}`} className="grid gap-2 border-b border-border/70 px-5 py-4 last:border-0 sm:grid-cols-[115px_1fr] sm:gap-5" data-testid={`row-role-day-${index + 1}`}><span className="mono text-[10px] uppercase tracking-[.1em] text-primary" data-testid={`text-role-day-time-${index + 1}`}>{block.time}</span><p className="text-sm leading-6 text-foreground/80" data-testid={`text-role-day-activity-${index + 1}`}>{block.activity}</p></div>)}</div></section>
     <section className="mt-8 grid gap-4 md:grid-cols-2"><ContentList title="What the work measures" items={content.metrics} testId="section-role-metrics" /><ContentList title="People in the room" items={content.stakeholders} testId="section-role-stakeholders" /></section>
@@ -529,6 +541,8 @@ function RoleDeepDive({ slug }: { slug?: string }) {
       <h3 className="serif mt-6 text-2xl">Finish with</h3><p className="mt-2 text-sm leading-6 text-foreground/80" data-testid="text-practice-deliverable">{content.practiceProject.deliverable}</p>
       <h3 className="serif mt-5 text-2xl">Reflect before going further</h3><p className="mt-2 text-sm leading-6 text-foreground/80" data-testid="text-practice-reflection">{content.practiceProject.reflection}</p>
     </section>}
+    {role.slug === 'product-design' && <DesignerDay />}
+    <TwoWeekPlan role={role} profile={profile} />
     <div className="mt-8 flex flex-col justify-between gap-4 rounded-[1.5rem] border border-border bg-card/70 p-5 sm:flex-row sm:items-center sm:px-7"><div><span className="mono text-[9px] uppercase tracking-[.15em] text-primary">Keep exploring</span><p className="serif mt-1 text-2xl">One role is only one possibility.</p></div><Link href={`/roles/family/${role.familySlug}`} className="inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-role-detail-family">See more in {role.familyTitle} <ArrowRight size={15} /></Link></div>
     <RoleMentorChat slug={role.slug} roleTitle={role.title} />
   </article></Frame>;
@@ -562,7 +576,7 @@ function Recommendations({ profile, answers }: { profile: CareerProfileInput | n
       {generate.isPending && <div className="mt-9 grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="h-64 animate-pulse rounded-[1.7rem] bg-secondary/70" />)}</div>}
       {error && <div className="mt-8"><Alert>{error}</Alert><Button onClick={request} className="mt-4">Try again</Button></div>}
       {result && <div className="mt-9 grid gap-4 md:grid-cols-3">{result.recommendations.map((rec, index) => <Link href={familyForRecommendation(rec.role)} key={rec.role} className={`relative flex min-h-72 flex-col rounded-[1.7rem] border p-6 no-underline transition hover:-translate-y-1 hover:border-primary/45 ${index === 0 ? 'border-primary/40 bg-[#e7eee7]' : 'border-border bg-card'}`} data-testid={`card-role-${index}`}>
-        <div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-xs text-primary" data-testid={`text-role-fit-${index}`}>{rec.fit}% fit</span></div>
+        <div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-xs text-primary">Worth exploring, not a verdict</span></div>
         <h2 className="serif mt-7 text-3xl leading-tight" data-testid={`text-recommendation-role-${index}`}>{rec.role}</h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground" data-testid={`text-recommendation-why-${index}`}>{rec.why || roleNotes[rec.role]}</p>
         {rec.quote && <blockquote className="serif mt-auto border-l-2 border-[hsl(var(--accent))] pl-3 pt-6 text-lg italic leading-6">“{rec.quote}”</blockquote>}
@@ -595,9 +609,9 @@ function Settings({ profile }: { profile: CareerProfileInput | null }) {
         <Link href={profile ? '/profile-review' : '/onboarding'} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-settings-profile">Review your details <ArrowRight size={15} /></Link>
       </section>
       <section className="mt-5 rounded-[1.7rem] border border-border bg-card p-6 sm:p-8">
-        <div className="flex gap-4"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f3dddd] text-[hsl(var(--destructive))]"><Trash2 size={19} /></div><div><h2 className="serif text-3xl">Delete your account and data</h2><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Permanently remove your account record and saved career profile from this app, then sign out. This does not delete your separate sign-in provider account. This can’t be undone.</p></div></div>
+        <div className="flex gap-4"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f3dddd] text-[hsl(var(--destructive))]"><Trash2 size={19} /></div><div><h2 className="serif text-3xl">Delete your account and data</h2><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Remove your account, saved profile, plans, progress and local review records from this app, then sign out. This cannot be undone. It does not delete your sign-in provider account or recall copies already shared with AgenticOrg. Provider and backup retention policies still apply.</p></div></div>
         {error && <div className="mt-5"><Alert>{error}</Alert></div>}
-        {confirm ? <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5"><p className="font-semibold text-red-900">Are you sure you want to delete your profile?</p><p className="mt-1 text-sm text-red-800">Your saved details will be removed from this account.</p><div className="mt-4 flex flex-wrap gap-3"><Button variant="danger" onClick={deleteData} disabled={removeProfile.isPending}>{removeProfile.isPending ? <><LoaderCircle className="animate-spin" size={16} /> Deleting…</> : 'Yes, delete my data'}</Button><Button variant="outline" onClick={() => setConfirm(false)}>Keep my data</Button></div></div> :
+        {confirm ? <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5"><p className="font-semibold text-red-900">Are you sure you want to delete your profile?</p><p className="mt-1 text-sm text-red-800">Your saved profile, plans, progress and local review records will be deleted.</p><div className="mt-4 flex flex-wrap gap-3"><Button variant="danger" onClick={deleteData} disabled={removeProfile.isPending}>{removeProfile.isPending ? <><LoaderCircle className="animate-spin" size={16} /> Deleting…</> : 'Yes, delete my data'}</Button><Button variant="outline" onClick={() => setConfirm(false)}>Keep my data</Button></div></div> :
           <Button variant="outline" className="mt-6 border-[hsl(var(--destructive))/40] text-[hsl(var(--destructive))]" onClick={() => setConfirm(true)} data-testid="button-delete-data">Delete my data</Button>}
         {removeProfile.isSuccess && <div className="mt-4"><Alert kind="success">Your profile was deleted. Signing you out…</Alert></div>}
       </section>
@@ -611,7 +625,7 @@ function PrivateRouter() {
   const [location, setLocation] = useLocation();
   const query = useGetCareerProfile({ query: { enabled: auth.isAuthenticated, queryKey: getGetCareerProfileQueryKey() } });
   const serverProfile = query.data?.profile;
-  const [draft, setDraft] = useState<CareerProfileInput>(emptyDraft);
+  const [draft, setDraft] = useState<CareerProfileInput | null>(null);
   const [answers, setAnswers] = useState<AnswerEntry[]>([]);
   const [personaGuess, setPersonaGuess] = useState<Persona | null>(null);
   const profileInput = useMemo<CareerProfileInput | null>(() => {
@@ -619,14 +633,19 @@ function PrivateRouter() {
     const { id: _id, updatedAt: _updatedAt, ...input } = serverProfile;
     return input;
   }, [serverProfile]);
-  const saved = () => {
-    queryClient.invalidateQueries({ queryKey: getGetCareerProfileQueryKey() });
-    setLocation('/recommendations');
+  const saved = async () => {
+    const destination = draft?.persona === 'professional' ? '/roles' : '/recommendations';
+    await queryClient.invalidateQueries({ queryKey: getGetCareerProfileQueryKey() });
+    setDraft(null);
+    setLocation(destination);
   };
   if (auth.isLoading) return <div className="grid min-h-[100dvh] place-items-center bg-background"><div className="w-[min(90vw,420px)] rounded-[2rem] border border-border bg-card p-8"><LoadingBlock label="Checking your private space" /></div></div>;
-  if (!auth.isAuthenticated) return location === '/' ? <Landing /> : <SignIn />;
-  if (query.isLoading && location === '/') return <Welcome profile={null} loading onRetry={() => query.refetch()} />;
-  const resolvedDraft = profileInput || draft;
+  // The public home is the product story. The sign-in surface remains the
+  // first private route so every landing CTA has one dependable destination.
+  if (!auth.isAuthenticated) return location === '/' || location === '/about' ? <Landing /> : <SignIn />;
+  if (query.isLoading) return <Welcome profile={null} loading onRetry={() => query.refetch()} />;
+  if (query.isError) return <Welcome profile={null} loading={false} error onRetry={() => query.refetch()} />;
+  const resolvedDraft = draft ?? profileInput ?? emptyDraft();
   return <Switch>
     <Route path="/"><Welcome profile={profileInput} loading={query.isLoading} error={query.isError} onRetry={() => query.refetch()} /></Route>
     <Route path="/onboarding"><Onboarding draft={resolvedDraft} setDraft={setDraft} setPersonaGuess={setPersonaGuess} /></Route>
@@ -636,7 +655,7 @@ function PrivateRouter() {
     <Route path="/recommendations"><Recommendations profile={profileInput} answers={answers} /></Route>
     <Route path="/roles"><RoleCatalog /></Route>
     <Route path="/roles/family/:familySlug"><RoleFamilyRoute /></Route>
-    <Route path="/roles/:slug"><RoleDetailRoute /></Route>
+    <Route path="/roles/:slug"><RoleDetailRoute profile={profileInput} /></Route>
     <Route path="/settings"><Settings profile={profileInput} /></Route>
     <Route component={NotFound} />
   </Switch>;
@@ -647,9 +666,9 @@ function RoleFamilyRoute() {
   return <RoleFamilyPicker familySlug={params.familySlug} />;
 }
 
-function RoleDetailRoute() {
+function RoleDetailRoute({ profile }: { profile: CareerProfileInput | null }) {
   const params = useParams<{ slug: string }>();
-  return <RoleDeepDive slug={params.slug} />;
+  return <RoleDeepDive key={params.slug} slug={params.slug} profile={profile} />;
 }
 
 function App() {

@@ -29,6 +29,7 @@ export * from './careerRoleRecord';
 export * from './careerRoleRecordStatus';
 export * from './deleteProfileResult';
 export * from './healthStatus';
+export * from './logoutBrowserSession200';
 export * from './logoutBrowserSessionParams';
 export * from './nextQuestionInput';
 export * from './nextQuestionInputPersona';

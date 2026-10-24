@@ -65,7 +65,7 @@ paths:
         "302":
           description: Redirect to the app after sign-in
   /logout:
-    get:
+    post:
       operationId: logoutBrowserSession
       tags: [Auth]
       summary: End the browser session
@@ -76,8 +76,16 @@ paths:
           schema:
             type: string
       responses:
-        "302":
-          description: Redirect after sign-out
+        "200":
+          description: Session cleared; browser should navigate to redirectTo
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [redirectTo]
+                properties:
+                  redirectTo:
+                    type: string
   /me/profile:
     get:
       operationId: getCareerProfile

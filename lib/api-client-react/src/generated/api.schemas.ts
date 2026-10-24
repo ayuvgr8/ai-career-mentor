@@ -356,3 +356,7 @@ export type LogoutBrowserSessionParams = {
 returnTo?: string;
 };
 
+export type LogoutBrowserSession200 = {
+  redirectTo: string;
+};
+

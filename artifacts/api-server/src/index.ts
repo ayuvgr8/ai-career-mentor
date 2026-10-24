@@ -1,7 +1,14 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { pool } from '@workspace/db';
 
-const rawPort = process.env["PORT"];
+if (process.env.NODE_ENV === 'production' && (!process.env.APP_ORIGIN || new URL(process.env.APP_ORIGIN).protocol !== 'https:')) {
+  throw new Error('Production requires APP_ORIGIN with the public HTTPS origin.');
+}
+
+// 5050 avoids macOS ControlCenter/AirPlay's common port-5000 reservation.
+// Hosted runtimes still provide PORT explicitly.
+const rawPort = process.env["PORT"] || (process.env.NODE_ENV === 'production' ? undefined : '5050');
 
 if (!rawPort) {
   throw new Error(
@@ -15,7 +22,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -23,3 +30,10 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.once(signal, () => {
+    server.close(() => { void pool.end().then(() => process.exit(0)); });
+    setTimeout(() => process.exit(1), 10000).unref();
+  });
+}

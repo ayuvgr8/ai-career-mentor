@@ -1,6 +1,6 @@
-# [Project name]
+# Morrow — AI Career Mentor
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+_A private, mobile-first career exploration app for students and early-career professionals in India._
 
 ## Run & Operate
 
@@ -9,7 +9,8 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required platform configuration: Postgres (`DATABASE_URL`) and Replit Auth (`REPL_ID`)
+- OpenAI uses Replit AI Integrations; its environment values are provisioned automatically, with no user-owned API key.
 
 ## Stack
 
@@ -22,23 +23,32 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/career-mentor` — React + Tailwind app and onboarding screens.
+- `artifacts/api-server` — Express auth, profile, resume parsing, adaptive questions, and recommendations.
+- `lib/api-spec/openapi.yaml` — API contract; run codegen after changes.
+- `lib/db/src/schema` — Drizzle schema for auth sessions, users, and confirmed career profiles.
+- `lib/integrations-openai-ai-server` — Replit-managed OpenAI SDK client.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Replit Auth uses the server-side OIDC flow with secure, HTTP-only session cookies.
+- Only the profile explicitly confirmed by the user is stored. Assessment answers and resume contents are processed in memory and are not persisted.
+- AI calls happen only on the server. Resume text and assessment answers are sent for the requested inference but are not stored.
+- Account deletion removes the app user record, confirmed career profile, and their sessions; it does not delete the user's separate identity-provider account.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Morrow guides users through editable profile setup, optional resume extraction, adaptive Hinglish reflections, confirmed profile review, and three career-role suggestions from four supported paths. Users can inspect, edit, and delete their stored app data.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+No additional standing preferences recorded.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The resume parser accepts PDF or pasted text; the browser sends it only for server-side parsing and does not retain the file.
+- Career API routes require authentication; `/healthz` and auth-start/callback routes are public.
+- The `@workspace/replit-auth-web` package uses the `app-base-path` meta tag for post-login redirects.
 
 ## Pointers
 

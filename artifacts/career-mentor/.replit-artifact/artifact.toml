@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AI Career Mentor"
+description = "A private, mobile-first career exploration app for students and early-career professionals in India. Build a career profile through adaptive questions and explore role fit before committing."
+version = "1.0.0"
+id = "artifacts/career-mentor"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22427
+
+[services.development]
+run = "pnpm --filter @workspace/career-mentor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/career-mentor", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/career-mentor/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22427"
+BASE_PATH = "/"

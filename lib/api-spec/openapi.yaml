@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser authentication endpoints
+  - name: career
+    description: Private career profile and exploration
 paths:
   /healthz:
     get:
@@ -24,7 +28,176 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      operationId: getCurrentAuthUser
+      tags: [Auth]
+      summary: Get the current authenticated user
+      parameters:
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Current authentication state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserEnvelope"
+  /login:
+    get:
+      operationId: beginBrowserLogin
+      tags: [Auth]
+      summary: Start browser sign-in
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to the identity provider
+  /callback:
+    get:
+      operationId: handleBrowserLoginCallback
+      tags: [Auth]
+      summary: Complete browser sign-in
+      responses:
+        "302":
+          description: Redirect to the app after sign-in
+  /logout:
+    get:
+      operationId: logoutBrowserSession
+      tags: [Auth]
+      summary: End the browser session
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect after sign-out
+  /me/profile:
+    get:
+      operationId: getCareerProfile
+      tags: [career]
+      summary: Read the signed-in user's confirmed career profile
+      responses:
+        "200":
+          description: Confirmed profile or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerProfileEnvelope"
+        "401":
+          description: Authentication required
+    put:
+      operationId: saveCareerProfile
+      tags: [career]
+      summary: Save a user-confirmed career profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CareerProfileInput"
+      responses:
+        "200":
+          description: Saved confirmed profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerProfile"
+        "400":
+          description: Invalid profile
+        "401":
+          description: Authentication required
+    delete:
+      operationId: deleteCareerProfile
+      tags: [career]
+      summary: Delete the user's app data and end the session
+      responses:
+        "200":
+          description: App data deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteProfileResult"
+        "401":
+          description: Authentication required
+  /career/resume/parse:
+    post:
+      operationId: parseCareerResume
+      tags: [career]
+      summary: Extract a draft profile from a PDF resume without retaining the file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeUpload"
+      responses:
+        "200":
+          description: Draft profile extracted for user review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeParseResult"
+        "400":
+          description: Unsupported or unreadable resume
+        "401":
+          description: Authentication required
+  /career/questions/next:
+    post:
+      operationId: getNextCareerQuestion
+      tags: [career]
+      summary: Choose the next adaptive profile question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NextQuestionInput"
+      responses:
+        "200":
+          description: Next question or completion marker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NextQuestionResult"
+        "400":
+          description: Invalid input or question limit reached
+        "401":
+          description: Authentication required
+  /career/recommendations:
+    post:
+      operationId: generateCareerRecommendations
+      tags: [career]
+      summary: Generate a top-three role fit from the confirmed profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendationInput"
+      responses:
+        "200":
+          description: Career recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationResult"
+        "401":
+          description: Authentication required
 components:
+  parameters:
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +206,198 @@ components:
           type: string
       required:
         - status
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, "null"]
+          format: email
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        profileImageUrl:
+          type: [string, "null"]
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+    CareerProfile:
+      type: object
+      required: [id, name, city, ageBand, persona, currentStage, company, yearsExperience, internships, interests, energizers, chores, workStyle, preferredMake, strengths, constraints, familyExpectations, moneyNeeds, relocation, updatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        city: { type: string, minLength: 1, maxLength: 120 }
+        ageBand: { type: [string, "null"] }
+        persona: { type: string, enum: [student, professional] }
+        currentStage: { type: [string, "null"] }
+        company: { type: [string, "null"] }
+        yearsExperience: { type: [string, "null"] }
+        internships:
+          type: array
+          items: { type: string }
+        interests:
+          type: array
+          items: { type: string }
+        energizers:
+          type: array
+          items: { type: string }
+        chores:
+          type: array
+          items: { type: string }
+        workStyle: { type: string }
+        preferredMake: { type: string }
+        strengths:
+          type: array
+          items: { type: string }
+        constraints:
+          type: array
+          items: { type: string }
+        familyExpectations: { type: [string, "null"] }
+        moneyNeeds: { type: [string, "null"] }
+        relocation: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+    CareerProfileInput:
+      type: object
+      required: [name, city, ageBand, persona, currentStage, company, yearsExperience, internships, interests, energizers, chores, workStyle, preferredMake, strengths, constraints, familyExpectations, moneyNeeds, relocation]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        city: { type: string, minLength: 1, maxLength: 120 }
+        ageBand: { type: [string, "null"] }
+        persona: { type: string, enum: [student, professional] }
+        currentStage: { type: [string, "null"] }
+        company: { type: [string, "null"] }
+        yearsExperience: { type: [string, "null"] }
+        internships:
+          type: array
+          items: { type: string }
+        interests:
+          type: array
+          items: { type: string }
+        energizers:
+          type: array
+          items: { type: string }
+        chores:
+          type: array
+          items: { type: string }
+        workStyle: { type: string }
+        preferredMake: { type: string }
+        strengths:
+          type: array
+          items: { type: string }
+        constraints:
+          type: array
+          items: { type: string }
+        familyExpectations: { type: [string, "null"] }
+        moneyNeeds: { type: [string, "null"] }
+        relocation: { type: [string, "null"] }
+    CareerProfileEnvelope:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          oneOf:
+            - $ref: "#/components/schemas/CareerProfile"
+            - type: "null"
+    DeleteProfileResult:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, const: true }
+    ResumeUpload:
+      type: object
+      required: [name, city, ageBand]
+      properties:
+        file:
+          type: string
+          contentEncoding: base64
+          description: Base64-encoded PDF content processed in memory and discarded
+        resumeText:
+          type: string
+          maxLength: 30000
+          description: Optional pasted resume text, processed in memory and discarded
+        name: { type: string, minLength: 1, maxLength: 100 }
+        city: { type: string, minLength: 1, maxLength: 120 }
+        ageBand: { type: [string, "null"] }
+    ResumeParseResult:
+      type: object
+      required: [draft, personaGuess, note]
+      properties:
+        draft:
+          $ref: "#/components/schemas/CareerProfileInput"
+        personaGuess: { type: string, enum: [student, professional] }
+        note: { type: string }
+    AnswerEntry:
+      type: object
+      required: [topic, answer]
+      properties:
+        topic: { type: string, maxLength: 80 }
+        answer: { type: string, maxLength: 1200 }
+    NextQuestionInput:
+      type: object
+      required: [draft, persona, answers]
+      properties:
+        draft:
+          $ref: "#/components/schemas/CareerProfileInput"
+        persona: { type: string, enum: [student, professional] }
+        answers:
+          type: array
+          maxItems: 7
+          items:
+            $ref: "#/components/schemas/AnswerEntry"
+    NextQuestionResult:
+      type: object
+      required: [complete, question, topic, options, allowFreeText, draft]
+      properties:
+        complete: { type: boolean }
+        question: { type: [string, "null"] }
+        topic: { type: [string, "null"] }
+        options:
+          type: array
+          maxItems: 5
+          items: { type: string }
+        allowFreeText: { type: boolean }
+        draft:
+          oneOf:
+            - $ref: "#/components/schemas/CareerProfileInput"
+            - type: "null"
+    RecommendationInput:
+      type: object
+      required: [profile, answers]
+      properties:
+        profile:
+          $ref: "#/components/schemas/CareerProfileInput"
+        answers:
+          type: array
+          maxItems: 7
+          items:
+            $ref: "#/components/schemas/AnswerEntry"
+    CareerRecommendation:
+      type: object
+      required: [role, fit, why, quote]
+      properties:
+        role:
+          type: string
+          enum: [Software Engineer, Marketing, Content Creation / Design, Product Manager]
+        fit: { type: integer, minimum: 1, maximum: 100 }
+        why: { type: string, maxLength: 320 }
+        quote: { type: string, maxLength: 160 }
+    RecommendationResult:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/CareerRecommendation"
 

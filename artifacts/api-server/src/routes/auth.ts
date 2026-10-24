@@ -6,6 +6,7 @@ import { Router, type IRouter, type Request, type Response } from 'express';
 import * as oidc from 'openid-client';
 import { randomUUID } from 'node:crypto';
 import { requestLimit } from '../middlewares/requestLimits';
+import { publicOrigin } from '../lib/origin';
 
 import {
   clearSession,
@@ -22,7 +23,8 @@ const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 const router: IRouter = Router();
 
 function getOrigin(req: Request): string {
-  if (process.env.APP_ORIGIN) return new URL(process.env.APP_ORIGIN).origin;
+  const configured = publicOrigin();
+  if (configured) return configured;
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host =
     req.headers['x-forwarded-host'] || req.headers['host'] || 'localhost';

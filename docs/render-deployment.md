@@ -20,16 +20,9 @@ the Blueprint provisions its Render Postgres database and supplies the private
    `AI_INTEGRATIONS_OPENAI_BASE_URL`, and
    `AI_INTEGRATIONS_OPENAI_API_KEY`. Do not prefix any of these with `VITE_`.
    Confirm the chosen `CAREER_AI_MODEL` is available to that AI provider.
-4. On the first deployment, initialize the empty database with Render Shell:
-
-   ```sh
-   pnpm --filter @workspace/db push
-   ```
-
-   This is only for a newly created database. Do not use `push-force`, and do
-   not use this command to apply schema changes to an existing production
-   database. Apply reviewed SQL migrations instead; the current additive
-   migration is `lib/db/migrations/001_two_week_plans.sql`.
+4. The start command runs `pnpm db:migrate` before `pnpm start`. It creates
+   the schema on an empty database and applies new additive migrations on
+   later deploys; it is idempotent and lock-guarded. Do not use `push-force`.
 
 5. Register `https://rolevo-career-mentor.onrender.com/api/callback` as the
    Replit OAuth callback URL. If a custom domain is attached, update both

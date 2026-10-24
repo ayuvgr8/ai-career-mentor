@@ -14,7 +14,7 @@ import {
   PlanProgressBody,
   ReviewConsentBody,
 } from "@workspace/api-zod";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { aiModel, openai } from "@workspace/integrations-openai-ai-server";
 import { fingerprint, planPrompt, validatePlan } from "../lib/plan-validation";
 import {
   getReviewPackage,
@@ -129,7 +129,7 @@ router.post("/career/plans/role/:slug", async (req, res) => {
     );
   try {
     const completion = await openai.chat.completions.create({
-      model: process.env.CAREER_AI_MODEL || "gpt-5.6-terra",
+      model: aiModel(),
       max_completion_tokens: 6000,
       response_format: { type: "json_object" },
       messages: [

@@ -21,3 +21,4 @@ export * from "./auth";
 export * from "./career-profiles";
 export * from "./career-roles";
 export * from "./career-plans";
+export * from "./career-matches";

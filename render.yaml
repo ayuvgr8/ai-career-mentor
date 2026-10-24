@@ -9,7 +9,8 @@ services:
     region: singapore
     plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm start
+    # Migrations are idempotent and lock-guarded, so every boot can apply them.
+    startCommand: pnpm db:migrate && pnpm start
     healthCheckPath: /api/healthz
     autoDeployTrigger: commit
     envVars:

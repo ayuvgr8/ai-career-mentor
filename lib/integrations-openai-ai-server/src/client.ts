@@ -18,3 +18,8 @@ export const openai = new OpenAI({
   timeout: 45000,
   maxRetries: 1,
 });
+
+// One place decides the chat model so every server call stays consistent.
+export function aiModel(): string {
+  return process.env.CAREER_AI_MODEL || "gpt-5.6-terra";
+}

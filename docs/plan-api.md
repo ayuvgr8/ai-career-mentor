@@ -15,6 +15,10 @@ Base path `/api`. All `/career/*` endpoints require the authenticated owner's se
 | `PATCH /career/plans/:id/progress` | `expectedVersion`, completed activity indices and reflection; does not alter reviewed plan content |
 | `GET /career/plans/:id/review-package` | Exact saved package preview; no provider request occurs |
 | `POST /career/plans/:id/review` | `consent:true`, `expectedVersion`, `profileFingerprint`, `reviewerName`, `reviewerId`; rejects changed packages before transmission |
+| `GET /career/matches` | Saved top three for this owner, `stale` when the profile changed since, reactions and opened guides |
+| `PUT /career/matches/reactions` | `{role, reaction}` with `interested`, `not-for-me` or `null`; reactions shape the next refresh, never a verdict |
+| `POST /career/matches/opened` | `{slug}` records an opened guide (most recent first, bounded) |
+| `GET /readyz` | Readiness: database reachable (`/healthz` stays a cheap liveness check) |
 | `GET /career/plans/:id/review` | Bounded polling of the current version's actual attributed human decision |
 
 `PlanView` includes ID, role slug, version, content, saved constraints, completion indices, reflection, profile-stale flag and review status/notes. It never exposes another user's record or the provider API key. Workflow run IDs remain server-side. States are `pending`, `reviewed`, `changes_requested`, `unavailable`; `reviewed` is a human decision, not a career-fit verdict.

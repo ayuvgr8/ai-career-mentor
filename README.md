@@ -4,16 +4,20 @@ React/Tailwind frontend, Express API, PostgreSQL/Drizzle persistence, Replit Aut
 
 ## Run locally
 
-Use Node 24 and pnpm 10.33.2. Install with `pnpm install --frozen-lockfile`. Copy `.env.example` to `.env`, configure a development PostgreSQL database and the Replit AI integration, then:
+Use Node 24, pnpm 10.33.2 and a local PostgreSQL server (for example `brew services start postgresql@16`).
 
 ```sh
-# Only against a new DEVELOPMENT database. Review the proposed schema changes.
-DATABASE_URL=postgres://localhost:5432/rolevo pnpm --filter @workspace/db push
-pnpm build
-pnpm start
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-The API serves the built frontend at `http://localhost:5050` by default. It loads the root `.env` when present. For frontend hot reload, run `pnpm --filter @workspace/career-mentor dev` separately; set `APP_ORIGIN=http://localhost:5173` on the API. Vite proxies `/api` to port 5050. Use one consistent hostname. Deployment platforms still provide their own `PORT` value through the environment.
+`pnpm dev` runs `scripts/bootstrap.mjs` first. On the first run it creates `.env` from `.env.example` with local defaults (device-only sign-in, `postgres://$USER@127.0.0.1:5432/rolevo`), creates that local database if it is missing and applies the SQL migrations. It stops with a clear message if PostgreSQL is not running or the AI key is missing: add `AI_INTEGRATIONS_OPENAI_BASE_URL` (for example `https://api.openai.com/v1`) and `AI_INTEGRATIONS_OPENAI_API_KEY` to `.env`, then rerun. Open `http://localhost:5173`. The API runs on port 5050 and rebuilds and restarts when its source changes; Vite proxies `/api` to it.
+
+To run the production bundle locally instead: `pnpm build && pnpm db:migrate && pnpm start`, then open `http://localhost:5050`.
+
+### Database migrations
+
+`lib/db/migrations/*.sql` are applied in order by `pnpm db:migrate` (`lib/db/migrate.mjs`). Each file is idempotent, tracked in `schema_migrations` and applied under an advisory lock, so it is safe on a fresh database, on one created earlier with `drizzle-kit push`, and on every deployment boot. Add a new numbered, additive file for each schema change; never use `push-force` on production.
 
 Replit login requires a valid `REPL_ID` and registered callback `${APP_ORIGIN}/api/callback`. For local testing without Replit Auth, explicitly set `AUTH_MODE=anonymous`. The user must accept device-only access: a 256-bit HttpOnly cookie, no cross-device recovery, and access loss on logout, cookie clearing or seven-day expiry. This is not an account recovery system. The default remains Replit Auth.
 
@@ -56,7 +60,7 @@ DATABASE_URL=postgres://TEST_USER@127.0.0.1:5432/rolevo_test pnpm verify
 ## Deployment and remaining live gates
 
 1. Provision PostgreSQL, Replit Auth and AI Integrations. Confirm the model is available. Configure HTTPS `APP_ORIGIN`, `NODE_ENV=production`, port and Secrets.
-2. Back up an existing database. Apply `lib/db/migrations/001_two_week_plans.sql` with `psql -v ON_ERROR_STOP=1`. It is additive and does not change approved guide copy. On a fresh database, initialize the full Drizzle schema instead. Never use `push-force` on production.
+2. Back up an existing database. Run `pnpm db:migrate` (the Render start command already does). Migrations are additive and do not change approved guide copy. Never use `push-force` on production.
 3. Build with `pnpm build`; start with `pnpm start`. Serve frontend and API on the same origin. Do not deploy the separate mockup-sandbox artifact.
 4. Run real sign-in/callback/logout, PDF upload and AI failure/retry checks, then test a fresh profile → suggestions → mentor → two-week plan on desktop and phone. Check phone-only and paper-only plans for semantic feasibility, not just valid minutes.
 5. Complete the real owner approve/reject gate above; verify changing a plan requires a fresh review. Do not remove the “not yet live” banner before both pass.

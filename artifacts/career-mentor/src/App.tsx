@@ -412,7 +412,7 @@ function ProfileReview({ draft, setDraft, onSaved }: { draft: CareerProfileInput
   return <Frame>
     <div className="mx-auto max-w-4xl pt-4">
       <Link href="/questions" className="inline-flex items-center gap-2 text-sm text-muted-foreground no-underline hover:text-primary" data-testid="link-back-questions"><ArrowLeft size={15} /> Back to reflections</Link>
-      <p className="mono mt-10 text-[10px] uppercase tracking-[.2em] text-primary">Your words, your call</p>
+      <p className="mono mt-10 text-[10px] uppercase tracking-[.2em] text-primary">Sahi pakda? · Your words, your call</p>
       <h1 className="serif mt-3 text-5xl leading-tight sm:text-6xl">Does this sound<br className="hidden sm:block" /> like you?</h1>
       <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">Everything below is an editable draft. Only selecting “Save my profile” stores it to your account.</p>
       <form onSubmit={submit} className="mt-8 space-y-5">
@@ -508,6 +508,12 @@ function ContentList({ title, items, testId }: { title: string; items: string[];
 
 function RoleDeepDive({ slug, profile }: { slug?: string; profile: CareerProfileInput | null }) {
   const roleQuery = useGetCareerRole(slug || '', { query: { enabled: Boolean(slug), queryKey: getGetCareerRoleQueryKey(slug || '') } });
+  const openedSlug = roleQuery.data?.content ? roleQuery.data.slug : null;
+  // Which guides a user opens is a saved match-screen signal (build plan); best effort only.
+  useEffect(() => {
+    if (!openedSlug) return;
+    void fetch('/api/career/matches/opened', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: openedSlug }) }).catch(() => undefined);
+  }, [openedSlug]);
   if (!slug) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert kind="info">Choose a role from the catalog to open its field notes.</Alert><Link href="/roles" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-coming-to-catalog">Back to role catalog <ArrowRight size={15} /></Link></div></Frame>;
   if (roleQuery.isLoading) return <Frame active="/roles"><div className="mx-auto max-w-4xl pt-10" data-testid="status-role-detail-loading"><div className="h-3 w-32 animate-pulse rounded-full bg-secondary" /><div className="mt-5 h-14 w-3/4 animate-pulse rounded-2xl bg-secondary" /><div className="mt-8 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /><div className="mt-4 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /></div></Frame>;
   if (roleQuery.isError) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert>We couldn’t load these field notes.</Alert><Button className="mt-4" onClick={() => void roleQuery.refetch()} data-testid="button-retry-role-detail">Try again</Button></div></Frame>;
@@ -548,17 +554,47 @@ function RoleDeepDive({ slug, profile }: { slug?: string; profile: CareerProfile
   </article></Frame>;
 }
 
+type Reaction = 'interested' | 'not-for-me';
+type SavedMatches = { recommendations: RecommendationResult['recommendations']; stale: boolean; reactions: Record<string, Reaction>; opened: string[] };
+
 function Recommendations({ profile, answers }: { profile: CareerProfileInput | null; answers: AnswerEntry[] }) {
   const generate = useGenerateCareerRecommendations();
   const roleCatalog = useGetCareerRoles();
   const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [reactions, setReactions] = useState<Record<string, Reaction>>({});
+  const [loadedSaved, setLoadedSaved] = useState(false);
   const [error, setError] = useState('');
+  const [reactionError, setReactionError] = useState('');
   const request = useCallback(() => {
     if (!profile) return;
     setError('');
-    generate.mutate({ data: { profile, answers: answers.slice(-7) } }, { onSuccess: setResult, onError: () => setError('We couldn’t shape your role ideas just now. Your profile is safe — try again.') });
+    generate.mutate({ data: { profile, answers: answers.slice(-7) } }, { onSuccess: setResult, onError: (err) => setError(serverError(err) || 'We couldn’t shape your role ideas just now. Your profile is safe — try again.') });
   }, [profile, answers, generate.mutate]);
-  useEffect(() => { if (profile && !result && !generate.isPending && !error) request(); }, [profile, result, generate.isPending, error, request]);
+  // A saved top three for the current profile is reused, so a revisit does not
+  // wait on (or bill) a new model call. A changed profile asks again.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/career/matches', { credentials: 'include', signal: controller.signal })
+      .then((res) => (res.ok ? res.json() as Promise<SavedMatches> : null))
+      .then((saved) => {
+        if (!saved) return;
+        setReactions(saved.reactions);
+        if (!saved.stale && saved.recommendations.length === 3) setResult({ recommendations: saved.recommendations });
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!controller.signal.aborted) setLoadedSaved(true); });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => { if (loadedSaved && profile && !result && !generate.isPending && !error) request(); }, [loadedSaved, profile, result, generate.isPending, error, request]);
+  const react = (role: string, reaction: Reaction) => {
+    const next = reactions[role] === reaction ? null : reaction;
+    const previous = reactions;
+    setReactionError('');
+    setReactions((current) => { const copy = { ...current }; if (next) copy[role] = next; else delete copy[role]; return copy; });
+    fetch('/api/career/matches/reactions', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role, reaction: next }) })
+      .then((res) => { if (!res.ok) throw new Error(); })
+      .catch(() => { setReactions(previous); setReactionError('Your reaction wasn’t saved. Please try again.'); });
+  };
   const allRoles = ['Software Engineer', 'Marketing', 'Content Creation / Design', 'Product Manager'];
   const remaining = allRoles.filter((role) => !result?.recommendations.some((rec) => rec.role === role));
   const familyForRecommendation = (recommendation: string) => {
@@ -568,23 +604,33 @@ function Recommendations({ profile, answers }: { profile: CareerProfileInput | n
     const match = roleCatalog.data?.roles.find((role) => target.some((word) => `${role.familyTitle} ${role.familySlug}`.toLowerCase().includes(word)));
     return match ? `/roles/family/${match.familySlug}` : '/roles';
   };
+  const loading = generate.isPending || (!loadedSaved && !result);
   return <Frame active="/recommendations">
     <div className="mx-auto max-w-5xl pt-4">
       <p className="mono text-[10px] uppercase tracking-[.2em] text-primary">Ideas to try on · not a verdict</p>
       <h1 className="serif mt-3 text-5xl leading-tight sm:text-6xl">A few paths<br className="sm:hidden" /> worth a look.</h1>
-      <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">These are starting points based on what you shared — not a score of your potential. Follow the thread that feels interesting.</p>
-      {generate.isPending && <div className="mt-9 grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="h-64 animate-pulse rounded-[1.7rem] bg-secondary/70" />)}</div>}
+      <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">These are starting points based on what you shared — not a score of your potential. Follow the thread that feels interesting, and tell us how each one lands.</p>
+      {!profile && <div className="mt-8"><Alert kind="info">Save your profile first, then your role ideas appear here.</Alert><Link href="/onboarding" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline">Start your reflection <ArrowRight size={15} /></Link></div>}
+      {profile && loading && <div className="mt-9 grid gap-4 md:grid-cols-3" aria-label="Shaping your role ideas">{[1, 2, 3].map((n) => <div key={n} className="h-64 animate-pulse rounded-[1.7rem] bg-secondary/70" />)}</div>}
       {error && <div className="mt-8"><Alert>{error}</Alert><Button onClick={request} className="mt-4">Try again</Button></div>}
-      {result && <div className="mt-9 grid gap-4 md:grid-cols-3">{result.recommendations.map((rec, index) => <Link href={familyForRecommendation(rec.role)} key={rec.role} className={`relative flex min-h-72 flex-col rounded-[1.7rem] border p-6 no-underline transition hover:-translate-y-1 hover:border-primary/45 ${index === 0 ? 'border-primary/40 bg-[#e7eee7]' : 'border-border bg-card'}`} data-testid={`card-role-${index}`}>
-        <div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-xs text-primary">Worth exploring, not a verdict</span></div>
-        <h2 className="serif mt-7 text-3xl leading-tight" data-testid={`text-recommendation-role-${index}`}>{rec.role}</h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground" data-testid={`text-recommendation-why-${index}`}>{rec.why || roleNotes[rec.role]}</p>
-        {rec.quote && <blockquote className="serif mt-auto border-l-2 border-[hsl(var(--accent))] pl-3 pt-6 text-lg italic leading-6">“{rec.quote}”</blockquote>}
-        <div className="mt-5 h-1.5 rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Math.max(rec.fit, 1), 100)}%` }} /></div><span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-primary">Explore this family <ArrowRight size={14} /></span>
-      </Link>)}</div>}
+      {result && !generate.isPending && <div className="mt-9 grid gap-4 md:grid-cols-3">{result.recommendations.map((rec, index) => <div key={rec.role} className={`flex min-h-72 flex-col rounded-[1.7rem] border transition hover:-translate-y-1 hover:border-primary/45 ${index === 0 ? 'border-primary/40 bg-[#e7eee7]' : 'border-border bg-card'} ${reactions[rec.role] === 'not-for-me' ? 'opacity-70' : ''}`}>
+        <Link href={familyForRecommendation(rec.role)} className="flex flex-1 flex-col p-6 pb-3 no-underline" data-testid={`card-role-${index}`}>
+          <div className="flex items-center justify-between gap-2"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-right text-xs text-primary">Worth exploring, not a verdict</span></div>
+          <h2 className="serif mt-7 text-3xl leading-tight" data-testid={`text-recommendation-role-${index}`}>{rec.role}</h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground" data-testid={`text-recommendation-why-${index}`}>{rec.why || roleNotes[rec.role]}</p>
+          {rec.quote && <blockquote className="serif mt-auto border-l-2 border-[hsl(var(--accent))] pl-3 pt-6 text-lg italic leading-6"><span className="sr-only">You said: </span>“{rec.quote}”</blockquote>}
+          <span className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-primary">Explore this family <ArrowRight size={14} /></span>
+        </Link>
+        <div className="flex gap-2 px-6 pb-6" role="group" aria-label={`How does ${rec.role} feel?`}>
+          {([['interested', 'Curious'], ['not-for-me', 'Not for me']] as [Reaction, string][]).map(([value, label]) => <button key={value} type="button" onClick={() => react(rec.role, value)} aria-pressed={reactions[rec.role] === value} data-testid={`button-reaction-${value}-${index}`}
+            className={`min-h-11 flex-1 rounded-full border px-3 text-xs font-semibold transition ${reactions[rec.role] === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background/70 text-foreground hover:border-primary/50'}`}>{label}</button>)}
+        </div>
+      </div>)}</div>}
+      {reactionError && <div className="mt-4"><Alert>{reactionError}</Alert></div>}
+      {result && Object.keys(reactions).length > 0 && <p className="mt-4 text-xs text-muted-foreground">Your reactions are saved privately and shape the next refresh. They are signals you chose to give, not a judgement.</p>}
       <section className="mt-8 rounded-[1.7rem] border border-border bg-card/70 p-6 sm:p-8">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">The wider field</p><h2 className="serif mt-2 text-3xl">Explore the other directions</h2><p className="mt-2 text-sm text-muted-foreground">Four role families, many ways to make them your own.</p></div><button onClick={request} disabled={generate.isPending || !profile} className="inline-flex items-center gap-2 text-sm font-semibold text-primary" data-testid="button-refresh-roles">{generate.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />} Refresh role ideas</button></div>
-        <div className="mt-6 flex flex-wrap gap-2">{(result ? remaining : allRoles).map((role) => <span key={role} className="rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground" data-testid={`text-explore-role-${role.toLowerCase().replaceAll(/[^a-z]+/g, '-')}`}>{role}</span>)}</div>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">The wider field</p><h2 className="serif mt-2 text-3xl">Explore the other directions</h2><p className="mt-2 text-sm text-muted-foreground">Four role families, many ways to make them your own.</p></div><button onClick={request} disabled={generate.isPending || !profile} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary" data-testid="button-refresh-roles">{generate.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />} Refresh role ideas</button></div>
+        <div className="mt-6 flex flex-wrap gap-2">{(result ? remaining : allRoles).map((role) => <Link key={role} href={familyForRecommendation(role)} className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-4 text-sm text-foreground no-underline transition hover:border-primary/50 hover:text-primary" data-testid={`text-explore-role-${role.toLowerCase().replaceAll(/[^a-z]+/g, '-')}`}>{role} <ChevronRight size={14} /></Link>)}</div>
       </section>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/80 bg-card/50 px-5 py-4"><span className="text-sm text-muted-foreground">Want to update what we know about you?</span><Link href="/profile-review" className="inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-revise-profile">Revise your profile <ArrowRight size={15} /></Link></div>
     </div>
@@ -620,14 +666,38 @@ function Settings({ profile }: { profile: CareerProfileInput | null }) {
   </Frame>;
 }
 
+function readTabState<T>(key: string | null, fallback: T): T {
+  if (!key) return fallback;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : fallback;
+  } catch { return fallback; } // storage unavailable or corrupt: start fresh
+}
+
+function useTabState<T>(key: string | null, initial: T): [T, (value: T) => void] {
+  const [state, setState] = useState(() => ({ key, value: readTabState(key, initial) }));
+  // Restore synchronously when the key appears (after sign-in resolves) so
+  // child screens never start from an empty draft and then jump.
+  if (state.key !== key) setState({ key, value: readTabState(key, initial) });
+  const setValue = useCallback((value: T) => {
+    setState((current) => ({ ...current, value }));
+    if (!key) return;
+    try { window.sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* best effort */ }
+  }, [key]);
+  return [state.key === key ? state.value : readTabState(key, initial), setValue];
+}
+
 function PrivateRouter() {
   const auth = useAuth();
   const [location, setLocation] = useLocation();
   const query = useGetCareerProfile({ query: { enabled: auth.isAuthenticated, queryKey: getGetCareerProfileQueryKey() } });
   const serverProfile = query.data?.profile;
-  const [draft, setDraft] = useState<CareerProfileInput | null>(null);
-  const [answers, setAnswers] = useState<AnswerEntry[]>([]);
-  const [personaGuess, setPersonaGuess] = useState<Persona | null>(null);
+  // Unsaved onboarding survives a refresh in this tab only; it is never sent
+  // to the server until the user confirms the profile.
+  const tabKey = auth.user ? `rolevo:${auth.user.id}` : null;
+  const [draft, setDraft] = useTabState<CareerProfileInput | null>(tabKey && `${tabKey}:draft`, null);
+  const [answers, setAnswers] = useTabState<AnswerEntry[]>(tabKey && `${tabKey}:answers`, []);
+  const [personaGuess, setPersonaGuess] = useTabState<Persona | null>(tabKey && `${tabKey}:persona`, null);
   const profileInput = useMemo<CareerProfileInput | null>(() => {
     if (!serverProfile) return null;
     const { id: _id, updatedAt: _updatedAt, ...input } = serverProfile;

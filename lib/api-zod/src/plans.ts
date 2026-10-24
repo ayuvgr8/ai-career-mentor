@@ -78,3 +78,28 @@ export interface ReviewPackage {
   constraints: PlanConstraints;
   plan: PlanContent;
 }
+
+export const CareerReactionBody = z.object({
+  role: z.enum([
+    "Software Engineer",
+    "Marketing",
+    "Content Creation / Design",
+    "Product Manager",
+  ]),
+  reaction: z.enum(["interested", "not-for-me"]).nullable(),
+});
+export const CareerOpenedBody = z.object({
+  slug: z.string().trim().min(1).max(100).regex(/^[a-z0-9-]+$/),
+});
+export type CareerReaction = "interested" | "not-for-me";
+export interface CareerMatchesView {
+  recommendations: {
+    role: string;
+    fit: number;
+    why: string;
+    quote: string;
+  }[];
+  stale: boolean;
+  reactions: Record<string, CareerReaction>;
+  opened: string[];
+}

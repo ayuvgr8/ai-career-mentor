@@ -26,6 +26,7 @@ import {
   BookOpen, BriefcaseBusiness, Layers3, RefreshCw,
 } from 'lucide-react';
 import NotFound from '@/pages/not-found';
+import Landing from '@/pages/Landing';
 import { RoleMentorChat } from '@/components/RoleMentorChat';
 import { RoleCompare } from '@/components/RoleCompare';
 
@@ -610,7 +611,7 @@ function PrivateRouter() {
     setLocation('/recommendations');
   };
   if (auth.isLoading) return <div className="grid min-h-[100dvh] place-items-center bg-background"><div className="w-[min(90vw,420px)] rounded-[2rem] border border-border bg-card p-8"><LoadingBlock label="Checking your private space" /></div></div>;
-  if (!auth.isAuthenticated) return <SignIn />;
+  if (!auth.isAuthenticated) return location === '/' ? <Landing /> : <SignIn />;
   if (query.isLoading && location === '/') return <Welcome profile={null} loading onRetry={() => query.refetch()} />;
   const resolvedDraft = profileInput || draft;
   return <Switch>

@@ -1,0 +1,30 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "jcTtVyxrpKmDwzZJa3iE4"
+uri = "file://.local/landing-evidence/landing-390.jpg"
+type = "image"
+title = "Landing page — 390px"
+description = "Full-page mobile screenshot of the public career landing."
+logical_id = "9f7f9bd3-7de9-4dcf-8cda-86f54e793890"
+content_hash = "sha256:bf98dcb1ee6f0cc593606db9545f027672c69997aa7054dc443621d58d8850c9"
+size = 110831
+mtime_ms = 1792838297284
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:1c52cbf8-76fa-4ec5-a968-40cc582678e7/9f7f9bd3-7de9-4dcf-8cda-86f54e793890/c83a4f30-4952-4ab4-b4ee-b04a9577163d"
+storage_version_token = "1792838327934456"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "j57MbWCHF5_s8A3c9KCB1"
+uri = "file://.local/landing-evidence/landing-1280.jpg"
+type = "image"
+title = "Landing page — 1280px"
+description = "Full-page desktop screenshot of the public career landing."
+logical_id = "2fde7b18-93b4-477f-a3a0-fecabd16d4f9"
+content_hash = "sha256:de620695042bc43789c3da334f4d291023329518003b4c00b71b92a6cc5299f2"
+size = 177624
+mtime_ms = 1792838006532
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:1c52cbf8-76fa-4ec5-a968-40cc582678e7/2fde7b18-93b4-477f-a3a0-fecabd16d4f9/0a196716-c7d3-42b2-809c-bc67b59d5ea7"
+storage_version_token = "1792838329207551"
+content_type = "image/jpeg"

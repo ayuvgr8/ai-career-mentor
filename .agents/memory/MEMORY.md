@@ -1,2 +1,3 @@
 - [PDF worker packaging](pdf-worker-packaging.md) — keep PDFJS intact at runtime; bundling can break worker loading and reject otherwise valid PDFs.
 - [Guide content approval](guide-content-approval.md) — draft labels require explicit content-owner approval; approval is limited to the reviewed copy.
+- [Landing geometry checks](landing-geometry.md) — allow for scrollbar width and transformed card corners when checking the mobile fan.

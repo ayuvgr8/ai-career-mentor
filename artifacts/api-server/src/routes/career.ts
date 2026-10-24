@@ -79,8 +79,11 @@ async function ensureCareerRoleSeeds(): Promise<void> {
       .values(careerRoleSeeds)
       .onConflictDoUpdate({
         target: careerRolesTable.slug,
-        set: { content: sql`excluded.content` },
-        where: sql`${careerRolesTable.status} = 'illustrative' AND ${careerRolesTable.content}->>'label' = 'Illustrative first draft'`,
+        set: {
+          status: sql`excluded.status`,
+          content: sql`excluded.content`,
+        },
+        where: sql`${careerRolesTable.status} = 'coming' OR (${careerRolesTable.status} = 'illustrative' AND ${careerRolesTable.content}->>'label' = 'Illustrative first draft')`,
       })
       .then(() => undefined);
   }

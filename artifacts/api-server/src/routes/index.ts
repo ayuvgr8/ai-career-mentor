@@ -3,6 +3,8 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import careerRouter from "./career";
 import plansRouter from './plans';
+import voiceRouter from './voice';
+import agenticLlmRouter from './agentic-llm';
 import { requestLimit } from '../middlewares/requestLimits';
 
 const router: IRouter = Router();
@@ -16,5 +18,7 @@ router.use('/career', (req, res, next) => {
 });
 router.use(careerRouter);
 router.use(plansRouter);
+router.use(voiceRouter);
+router.use(agenticLlmRouter);
 
 export default router;

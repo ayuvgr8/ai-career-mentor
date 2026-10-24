@@ -37,6 +37,17 @@ services:
       # after the real, owner-only approve/reject gate has passed.
       - key: AGENTICORG_VERIFIED
         value: "false"
+      # Voice mentor (optional). Routes answer 503 until these are set.
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_ID
+        sync: false
+      - key: VOICE_VERIFIED
+        value: "false"
+      - key: AGENTICORG_AGENT_UUID
+        sync: false
+      - key: ADAPTER_SHARED_TOKEN
+        sync: false
 
 databases:
   - name: rolevo-db

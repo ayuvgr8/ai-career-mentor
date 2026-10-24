@@ -11,5 +11,6 @@ export type CareerRoleRecordStatus = typeof CareerRoleRecordStatus[keyof typeof 
 
 export const CareerRoleRecordStatus = {
   illustrative: 'illustrative',
+  approved: 'approved',
   coming: 'coming',
 } as const;

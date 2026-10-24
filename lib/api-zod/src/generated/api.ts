@@ -372,10 +372,10 @@ export const GetCareerRolesResponse = zod.object({
   "familyTitle": zod.string(),
   "title": zod.string(),
   "summary": zod.string(),
-  "status": zod.enum(['illustrative', 'coming']),
+  "status": zod.enum(['illustrative', 'approved', 'coming']),
   "sortOrder": zod.number().int(),
   "content": zod.union([zod.object({
-  "label": zod.enum(['Illustrative first draft']),
+  "label": zod.union([zod.literal('Illustrative first draft'),zod.literal(null)]).nullable(),
   "whyItFits": zod.string(),
   "dayInLife": zod.array(zod.object({
   "time": zod.string(),
@@ -428,10 +428,10 @@ export const GetCareerRoleResponse = zod.object({
   "familyTitle": zod.string(),
   "title": zod.string(),
   "summary": zod.string(),
-  "status": zod.enum(['illustrative', 'coming']),
+  "status": zod.enum(['illustrative', 'approved', 'coming']),
   "sortOrder": zod.number().int(),
   "content": zod.union([zod.object({
-  "label": zod.enum(['Illustrative first draft']),
+  "label": zod.union([zod.literal('Illustrative first draft'),zod.literal(null)]).nullable(),
   "whyItFits": zod.string(),
   "dayInLife": zod.array(zod.object({
   "time": zod.string(),

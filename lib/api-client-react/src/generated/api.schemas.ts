@@ -284,7 +284,10 @@ export interface CareerRoleEntryRequirements {
   proofOfWork: string[];
 }
 
-export type CareerRoleContentLabel = typeof CareerRoleContentLabel[keyof typeof CareerRoleContentLabel];
+/**
+ * @nullable
+ */
+export type CareerRoleContentLabel = typeof CareerRoleContentLabel[keyof typeof CareerRoleContentLabel] | null;
 
 
 export const CareerRoleContentLabel = {
@@ -292,6 +295,7 @@ export const CareerRoleContentLabel = {
 } as const;
 
 export interface CareerRoleContent {
+  /** @nullable */
   label: CareerRoleContentLabel;
   whyItFits: string;
   /**
@@ -315,6 +319,7 @@ export type CareerRoleRecordStatus = typeof CareerRoleRecordStatus[keyof typeof 
 
 export const CareerRoleRecordStatus = {
   illustrative: 'illustrative',
+  approved: 'approved',
   coming: 'coming',
 } as const;
 

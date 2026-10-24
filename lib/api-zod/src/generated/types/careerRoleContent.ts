@@ -12,6 +12,7 @@ import type { CareerRoleEntryRequirements } from './careerRoleEntryRequirements'
 import type { CareerRoleJourneyStep } from './careerRoleJourneyStep';
 
 export interface CareerRoleContent {
+  /** @nullable */
   label: CareerRoleContentLabel;
   whyItFits: string;
   /**

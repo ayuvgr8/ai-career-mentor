@@ -21,6 +21,10 @@ function illustrativeContent(
   };
 }
 
+function approvedContent(...args: Parameters<typeof illustrativeContent>): CareerRoleContent {
+  return { ...illustrativeContent(...args), label: null };
+}
+
 const illustrativeRole = (
   slug: string,
   familySlug: string,
@@ -47,9 +51,9 @@ export const careerRoleSeeds: InsertCareerRole[] = [
     familyTitle: "Software Engineer",
     title: "Front-end Engineer",
     summary: "Build the accessible, responsive interfaces people use every day.",
-    status: "illustrative",
+    status: "approved",
     sortOrder: 1,
-    content: illustrativeContent(
+    content: approvedContent(
       "This path may suit someone who likes both logic and visible craft: shaping an interface, noticing where it confuses people, then making the interaction work across devices. The job is not only styling. It also includes debugging, code review, accessibility, and coordination with design, product, and backend teams. Use these signals as questions to test against your own interests, not as a promise of fit.",
       [
         { time: "09:00–10:00", activity: "Review the team's priorities, open interface bugs, and release signals; pick a focused task." },
@@ -312,9 +316,9 @@ export const careerRoleSeeds: InsertCareerRole[] = [
     familyTitle: "Marketing",
     title: "Performance Marketer",
     summary: "Use careful experiments and measurement to improve campaign outcomes.",
-    status: "illustrative",
+    status: "approved",
     sortOrder: 5,
-    content: illustrativeContent(
+    content: approvedContent(
       "This path may suit someone who enjoys asking why an audience responded, testing a clear idea, and connecting creative work to a measurable outcome. It is not just launching ads or reading dashboards: tracking can be incomplete, results can be noisy, and good decisions often mean pausing a campaign. The strongest work balances curiosity, clear writing, responsible measurement, and budget discipline.",
       [
         { time: "09:00–10:00", activity: "Check spend against budget guardrails, tracking health, and campaign changes since the last review." },
@@ -577,9 +581,9 @@ export const careerRoleSeeds: InsertCareerRole[] = [
     familyTitle: "Content Creation / Design",
     title: "Product Designer",
     summary: "Make digital services easier to understand and use.",
-    status: "illustrative",
+    status: "approved",
     sortOrder: 9,
-    content: illustrativeContent(
+    content: approvedContent(
       "This path may suit someone who notices friction, enjoys understanding people's needs, and wants to turn ambiguous problems into clear interactions. Product design is not only visual polish: much of the work is framing a problem, checking assumptions, discussing trade-offs, and revising a design after implementation or research. A strong portfolio explains decisions and what changed after feedback.",
       [
         { time: "09:00–10:00", activity: "Review support themes, research notes, and product signals related to one user problem." },
@@ -842,9 +846,9 @@ export const careerRoleSeeds: InsertCareerRole[] = [
     familyTitle: "Product Manager",
     title: "Core Product Manager",
     summary: "Help a team decide what problem to solve, what to build, and how to learn.",
-    status: "illustrative",
+    status: "approved",
     sortOrder: 13,
-    content: illustrativeContent(
+    content: approvedContent(
       "This path may suit someone who likes connecting user problems, business needs, and technical possibilities. It involves making choices with incomplete information and explaining why some good ideas are not the next priority. The work is not simply scheduling meetings or writing requirements: a product manager is accountable for helping a team learn whether its work made a meaningful difference.",
       [
         { time: "09:00–10:00", activity: "Review product outcomes, customer feedback, open decisions, and the team's current commitments." },

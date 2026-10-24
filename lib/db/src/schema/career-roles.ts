@@ -25,7 +25,7 @@ export interface CareerRoleEntryRequirements {
 }
 
 export interface CareerRoleContent {
-  label: string;
+  label: string | null;
   whyItFits: string;
   dayInLife: CareerRoleDayBlock[];
   metrics: string[];

@@ -543,7 +543,7 @@ components:
       type: object
       required: [label, whyItFits, dayInLife, metrics, stakeholders, journey, aiImpact, entryRequirements]
       properties:
-        label: { type: string, enum: [Illustrative first draft] }
+        label: { type: [string, "null"], enum: [Illustrative first draft, null] }
         whyItFits: { type: string }
         dayInLife:
           type: array
@@ -576,7 +576,7 @@ components:
         familyTitle: { type: string }
         title: { type: string }
         summary: { type: string }
-        status: { type: string, enum: [illustrative, coming] }
+        status: { type: string, enum: [illustrative, approved, coming] }
         sortOrder: { type: integer }
         content:
           oneOf:

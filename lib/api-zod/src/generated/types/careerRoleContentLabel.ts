@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CareerRoleContentLabel = typeof CareerRoleContentLabel[keyof typeof CareerRoleContentLabel];
+/**
+ * @nullable
+ */
+export type CareerRoleContentLabel = typeof CareerRoleContentLabel[keyof typeof CareerRoleContentLabel] | null;
 
 
 export const CareerRoleContentLabel = {

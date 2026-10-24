@@ -1,0 +1,1 @@
+- [PDF worker packaging](pdf-worker-packaging.md) — keep PDFJS intact at runtime; bundling can break worker loading and reject otherwise valid PDFs.

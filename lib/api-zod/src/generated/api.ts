@@ -458,3 +458,35 @@ export const GetCareerRoleResponse = zod.object({
 })
 
 
+/**
+ * @summary Chat with an AI role-play mentor grounded in the stored role brief
+ */
+export const chatWithCareerRoleMentorPathSlugMax = 100;
+
+
+
+export const ChatWithCareerRoleMentorParams = zod.object({
+  "slug": zod.coerce.string().min(1).max(chatWithCareerRoleMentorPathSlugMax)
+})
+
+export const chatWithCareerRoleMentorBodyMessagesItemContentMax = 6000;
+
+export const chatWithCareerRoleMentorBodyMessagesMax = 12;
+
+
+
+export const ChatWithCareerRoleMentorBody = zod.object({
+  "messages": zod.array(zod.object({
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().min(1).max(chatWithCareerRoleMentorBodyMessagesItemContentMax)
+})).min(1).max(chatWithCareerRoleMentorBodyMessagesMax)
+})
+
+
+
+
+export const ChatWithCareerRoleMentorResponse = zod.object({
+  "reply": zod.string().min(1)
+})
+
+

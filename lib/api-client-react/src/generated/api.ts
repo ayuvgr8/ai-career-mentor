@@ -35,7 +35,9 @@ import type {
   RecommendationInput,
   RecommendationResult,
   ResumeParseResult,
-  ResumeUpload
+  ResumeUpload,
+  RoleMentorChatInput,
+  RoleMentorChatResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1121,4 +1123,93 @@ export function useGetCareerRole<TData = Awaited<ReturnType<typeof getCareerRole
 
 
 
+
+export const getChatWithCareerRoleMentorUrl = (slug: string,) => {
+
+
+
+
+  return `/api/career/roles/${slug}/mentor`
+}
+
+/**
+ * @summary Chat with an AI role-play mentor grounded in the stored role brief
+ */
+export const chatWithCareerRoleMentor = async (slug: string,
+    roleMentorChatInput: RoleMentorChatInput, options?: Parameters<typeof customFetch>[1]): Promise<RoleMentorChatResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RoleMentorChatResult>(getChatWithCareerRoleMentorUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(roleMentorChatInput)
+  }
+);}
+
+
+
+
+
+export const getChatWithCareerRoleMentorMutationKey = () => ['chatWithCareerRoleMentor'] as const;
+
+export const getChatWithCareerRoleMentorMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatWithCareerRoleMentor>>, TError,ChatWithCareerRoleMentorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof chatWithCareerRoleMentor>>, TError,ChatWithCareerRoleMentorMutationVariables, TContext> => {
+
+const mutationKey = getChatWithCareerRoleMentorMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof chatWithCareerRoleMentor>>, ChatWithCareerRoleMentorMutationVariables> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  chatWithCareerRoleMentor(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChatWithCareerRoleMentorMutationResult = NonNullable<Awaited<ReturnType<typeof chatWithCareerRoleMentor>>>
+    export type ChatWithCareerRoleMentorMutationBody = BodyType<RoleMentorChatInput>
+    export type ChatWithCareerRoleMentorMutationError = ErrorType<void>
+    export type ChatWithCareerRoleMentorMutationVariables = {slug: string;data: BodyType<RoleMentorChatInput>}
+
+    /**
+ * @summary Chat with an AI role-play mentor grounded in the stored role brief
+ */
+export const useChatWithCareerRoleMentor = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof chatWithCareerRoleMentor>>, TError,ChatWithCareerRoleMentorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof chatWithCareerRoleMentor>>,
+        TError,
+        ChatWithCareerRoleMentorMutationVariables,
+        TContext
+      > => {
+      return useMutation(getChatWithCareerRoleMentorMutationOptions(options));
+    }
 

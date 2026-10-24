@@ -148,6 +148,8 @@ paths:
           description: Unsupported or unreadable resume
         "401":
           description: Authentication required
+        "503":
+          description: Resume reader is temporarily unavailable
   /career/questions/next:
     post:
       operationId: getNextCareerQuestion
@@ -228,6 +230,40 @@ paths:
           description: Authentication required
         "404":
           description: Role not found or content is not ready
+  /career/roles/{slug}/mentor:
+    post:
+      operationId: chatWithCareerRoleMentor
+      tags: [career]
+      summary: Chat with an AI role-play mentor grounded in the stored role brief
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleMentorChatInput"
+      responses:
+        "200":
+          description: Mentor reply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleMentorChatResult"
+        "400":
+          description: Invalid conversation
+        "401":
+          description: Authentication required
+        "404":
+          description: Role brief is not available
+        "503":
+          description: Mentor is temporarily unavailable
 components:
   parameters:
     SessionCookie:
@@ -237,6 +273,34 @@ components:
       schema:
         type: string
   schemas:
+    RoleMentorMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+          maxLength: 6000
+    RoleMentorChatInput:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/RoleMentorMessage"
+    RoleMentorChatResult:
+      type: object
+      required: [reply]
+      properties:
+        reply:
+          type: string
+          minLength: 1
     HealthStatus:
       type: object
       properties:

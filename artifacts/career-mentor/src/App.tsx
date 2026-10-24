@@ -26,8 +26,15 @@ import {
   BookOpen, BriefcaseBusiness, Layers3, RefreshCw,
 } from 'lucide-react';
 import NotFound from '@/pages/not-found';
+import { RoleMentorChat } from '@/components/RoleMentorChat';
 
 const queryClient = new QueryClient();
+
+function serverError(err: unknown): string {
+  const data = (err as { data?: unknown } | null)?.data;
+  const msg = data && typeof data === 'object' ? (data as { error?: unknown }).error : undefined;
+  return typeof msg === 'string' && msg.trim() && msg.length <= 300 ? msg.trim() : '';
+}
 
 type Persona = 'student' | 'professional';
 const emptyDraft = (): CareerProfileInput => ({
@@ -184,7 +191,8 @@ function Onboarding({ draft, setDraft, setPersonaGuess }: { draft: CareerProfile
     const file = (event.currentTarget as HTMLInputElement).files?.[0];
     if (!file) return;
     setParseError('');
-    if (file.type !== 'application/pdf') { setParseError('Please choose a PDF file.'); return; }
+    if (!draft.name.trim() || !draft.city.trim()) { setParseError('Add your name and city above before uploading your PDF.'); return; }
+    if (file.type !== 'application/pdf' && !(file.type === '' && /\.pdf$/i.test(file.name))) { setParseError('Please choose a PDF file.'); return; }
     if (file.size > 4 * 1024 * 1024) { setParseError('This PDF is over 4 MB. Choose a smaller file.'); return; }
     setFileName(file.name);
     try {
@@ -197,7 +205,7 @@ function Onboarding({ draft, setDraft, setPersonaGuess }: { draft: CareerProfile
           setDraft(result.draft);
           setPersonaGuess(result.personaGuess);
         },
-        onError: () => setParseError('We couldn’t read that PDF. You can try again or enter a few details instead.'),
+        onError: (err) => setParseError(serverError(err) || 'We couldn’t read that PDF. You can try again, paste the text instead, or enter a few details.'),
       });
       // The encoded file exists only for the request and is never put in React state or persisted.
     } catch {
@@ -211,7 +219,7 @@ function Onboarding({ draft, setDraft, setPersonaGuess }: { draft: CareerProfile
         setDraft(result.draft);
         setPersonaGuess(result.personaGuess);
       },
-      onError: () => setParseError('We couldn’t use that text. Please check it and try again.'),
+      onError: (err) => setParseError(serverError(err) || 'We couldn’t use that text. Please check it and try again.'),
     });
   };
   const submitBasic = (event: FormEvent) => {
@@ -242,11 +250,11 @@ function Onboarding({ draft, setDraft, setPersonaGuess }: { draft: CareerProfile
           <label className="block space-y-2"><span className="text-sm font-semibold">Age band <span className="font-normal text-muted-foreground">· optional</span></span><select data-testid="input-resume-age-band" value={draft.ageBand || ''} onChange={(e) => update('ageBand', e.target.value)} className="w-full rounded-2xl border border-border bg-card px-4 py-3.5"><option value="">Prefer not to say</option><option value="under-18">Under 18</option><option value="18-21">18–21</option><option value="22-25">22–25</option><option value="26-30">26–30</option><option value="31+">31+</option></select></label>
         </div>
         <label className="mt-6 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-secondary/30 p-6 text-center hover:bg-secondary/60">
-          {parseResume.isPending ? <><LoaderCircle className="animate-spin text-primary" size={24} /><span className="mt-3 text-sm font-semibold">Reading your PDF…</span></> : <><FileText className="text-primary" size={25} /><span className="mt-3 text-sm font-semibold">{fileName || 'Choose a PDF from this device'}</span><span className="mt-1 text-xs text-muted-foreground">PDF only · up to 4 MB · file not retained</span></>}
-          <input data-testid="input-resume-pdf" className="sr-only" type="file" accept="application/pdf,.pdf" onChange={onFile} disabled={parseResume.isPending} />
+          {parseResume.isPending ? <><LoaderCircle className="animate-spin text-primary" size={24} /><span className="mt-3 text-sm font-semibold">Reading your PDF…</span></> : <><FileText className="text-primary" size={25} /><span className="mt-3 text-sm font-semibold">{!draft.name.trim() || !draft.city.trim() ? 'Add your name and city above to enable upload' : fileName || 'Choose a PDF from this device'}</span><span className="mt-1 text-xs text-muted-foreground">PDF only · up to 4 MB · scanned PDFs can be read (first 8 pages) · file not retained</span></>}
+          <input data-testid="input-resume-pdf" className="sr-only" type="file" accept="application/pdf,.pdf" onChange={onFile} disabled={parseResume.isPending || !draft.name.trim() || !draft.city.trim()} />
         </label>
         <div className="mt-6">
-          <label className="block space-y-2"><span className="text-sm font-semibold">Or paste your resume text</span><textarea data-testid="input-resume-text" rows={5} value={resumeText} onChange={(event) => setResumeText(event.target.value)} placeholder="Paste the text here if your PDF is scanned or hard to read." className="w-full resize-y rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm leading-6 placeholder:text-muted-foreground/70" /></label>
+          <label className="block space-y-2"><span className="text-sm font-semibold">Or paste your resume text</span><textarea data-testid="input-resume-text" rows={5} value={resumeText} onChange={(event) => setResumeText(event.target.value)} placeholder="Paste the text here if the PDF can’t be read." className="w-full resize-y rounded-2xl border border-border bg-background/60 px-4 py-3 text-sm leading-6 placeholder:text-muted-foreground/70" /></label>
           <Button variant="outline" className="mt-3" onClick={parsePastedText} disabled={parseResume.isPending || !resumeText.trim() || !draft.name.trim() || !draft.city.trim()}>{parseResume.isPending ? <LoaderCircle className="animate-spin" size={16} /> : null} Use pasted text</Button>
         </div>
         {parseError && <div className="mt-4"><Alert>{parseError}</Alert></div>}
@@ -312,7 +320,7 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
   const [, setLocation] = useLocation();
   const [question, setQuestion] = useState<NextQuestionResult | null>(null);
   const [freeText, setFreeText] = useState('');
-  const [selected, setSelected] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
   const didStart = useRef(false);
   const [actionError, setActionError] = useState('');
   const requestQuestion = useCallback((currentAnswers: AnswerEntry[], currentDraft = draft) => {
@@ -321,7 +329,7 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
       onSuccess: (result) => {
         setQuestion(result);
         setFreeText('');
-        setSelected('');
+        setSelected([]);
         if (result.complete) {
           if (result.draft) setDraft(result.draft);
           setLocation('/profile-review');
@@ -336,16 +344,18 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
       requestQuestion(answers);
     }
   }, [requestQuestion, answers]);
-  const submitAnswer = (answer = selected || freeText.trim()) => {
+  const submitAnswer = () => {
+    const parts = [...selected, ...(freeText.trim() ? [freeText.trim()] : [])];
+    const answer = parts.join('; ');
     if (!question || !answer.trim()) return;
     const updatedAnswers = [...answers, { topic: question.topic || `reflection-${answers.length + 1}`, answer: answer.trim() }].slice(-7);
     setAnswers(updatedAnswers);
     // Keep structured draft fields in memory only; answers are intentionally not persisted until profile confirmation.
     const topic = (question.topic || '').toLowerCase();
     const nextDraft = { ...draft };
-    if (topic.includes('interest')) nextDraft.interests = [answer.trim()];
-    else if (topic.includes('energ')) nextDraft.energizers = [answer.trim()];
-    else if (topic.includes('strength')) nextDraft.strengths = [answer.trim()];
+    if (topic.includes('interest')) nextDraft.interests = parts;
+    else if (topic.includes('energ')) nextDraft.energizers = parts;
+    else if (topic.includes('strength')) nextDraft.strengths = parts;
     else if (topic.includes('style')) nextDraft.workStyle = answer.trim();
     else if (topic.includes('money')) nextDraft.moneyNeeds = answer.trim();
     else if (topic.includes('family')) nextDraft.familyExpectations = answer.trim();
@@ -362,11 +372,12 @@ function Questions({ draft, setDraft, answers, setAnswers }: { draft: CareerProf
           <section className="mt-7 rounded-[2rem] border border-border bg-card p-6 sm:p-10">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f0e0c3] text-primary"><Sparkles size={19} /></div>
             <h1 className="serif mt-7 max-w-2xl text-4xl leading-tight sm:text-5xl" data-testid="text-career-question">{question?.question || 'What kind of work feels worth your energy?'}</h1>
-            <p className="mt-3 text-sm text-muted-foreground">There isn’t a right answer. Choose one, or put it in your own words.</p>
-            {question?.options?.length ? <div className="mt-7 grid gap-3 sm:grid-cols-2">{question.options.map((option, index) => <button key={`${option}-${index}`} onClick={() => { setSelected(option); setFreeText(''); }} aria-pressed={selected === option} className={`rounded-2xl border px-4 py-4 text-left text-sm leading-6 transition ${selected === option ? 'border-primary bg-[#e7eee7] text-primary' : 'border-border bg-background/60 hover:border-primary/50'}`} data-testid={`button-answer-option-${index}`}>{option}</button>)}</div> : null}
-            {(!question || question.allowFreeText || !question.options?.length) && <label className="mt-6 block"><span className="sr-only">Your answer</span><textarea data-testid="input-answer-free-text" rows={3} value={freeText} onChange={(e) => { setFreeText(e.target.value); setSelected(''); }} placeholder="A few words is enough…" className="w-full resize-y rounded-2xl border border-border bg-background/60 px-4 py-4 text-sm leading-6 placeholder:text-muted-foreground/70" /></label>}
+            <p className="mt-3 text-sm text-muted-foreground">There isn’t a right answer. Choose up to three, or add your own words.</p>
+            {question?.options?.length ? <p className="mono mt-6 text-xs text-muted-foreground" data-testid="text-selection-count" aria-live="polite">{selected.length} of 3 selected{selected.length >= 3 ? ' · limit reached, deselect one to change' : ' · choose up to 3'}</p> : null}
+            {question?.options?.length ? <div className="mt-3 grid gap-3 sm:grid-cols-2">{question.options.map((option, index) => <button key={`${option}-${index}`} onClick={() => setSelected((cur) => cur.includes(option) ? cur.filter((o) => o !== option) : cur.length >= 3 ? cur : [...cur, option])} aria-pressed={selected.includes(option)} aria-disabled={!selected.includes(option) && selected.length >= 3} className={`rounded-2xl border px-4 py-4 text-left text-sm leading-6 transition ${!selected.includes(option) && selected.length >= 3 ? 'cursor-not-allowed opacity-50 ' : ''}${selected.includes(option) ? 'border-primary bg-[#e7eee7] text-primary' : 'border-border bg-background/60 hover:border-primary/50'}`} data-testid={`button-answer-option-${index}`}>{option}</button>)}</div> : null}
+            {(!question || question.allowFreeText || !question.options?.length) && <label className="mt-6 block"><span className="sr-only">Your answer</span><textarea data-testid="input-answer-free-text" rows={3} value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder="A few words is enough…" className="w-full resize-y rounded-2xl border border-border bg-background/60 px-4 py-4 text-sm leading-6 placeholder:text-muted-foreground/70" /></label>}
             {actionError && <div className="mt-5"><Alert>{actionError}</Alert><Button variant="outline" className="mt-3" onClick={() => requestQuestion(answers)}>Retry</Button></div>}
-            <div className="mt-8 flex items-center justify-between gap-3"><button onClick={() => setLocation('/profile-review')} className="text-sm text-muted-foreground hover:text-primary" data-testid="button-skip-reflection">Skip for now</button><Button onClick={() => submitAnswer()} disabled={nextQuestion.isPending || (!selected && !freeText.trim())}>{nextQuestion.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <>Continue <ArrowRight size={16} /></>}</Button></div>
+            <div className="mt-8 flex items-center justify-between gap-3"><button onClick={() => setLocation('/profile-review')} className="text-sm text-muted-foreground hover:text-primary" data-testid="button-skip-reflection">Skip for now</button><Button onClick={() => submitAnswer()} disabled={nextQuestion.isPending || (!selected.length && !freeText.trim())}>{nextQuestion.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <>Continue <ArrowRight size={16} /></>}</Button></div>
           </section>}
     </div>
   </Frame>;
@@ -503,6 +514,7 @@ function RoleDeepDive({ slug }: { slug?: string }) {
     <section className="mt-8 rounded-[1.8rem] border border-border bg-[#f4ead6] p-6 sm:p-8" data-testid="section-role-ai-impact"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary text-primary-foreground"><Sparkles size={18} /></div><div><p className="mono text-[9px] uppercase tracking-[.16em] text-primary">Tools are changing the work</p><h2 className="serif mt-1 text-3xl">Where AI may fit</h2></div></div><p className="mt-5 max-w-3xl text-sm leading-7 text-foreground/80" data-testid="text-role-ai-changing">{content.aiImpact.changing}</p><div className="mt-6 grid gap-4 md:grid-cols-2"><ContentList title="Tasks to watch" items={content.aiImpact.tasksToWatch} testId="section-role-ai-tasks" /><ContentList title="The human edge" items={content.aiImpact.humanEdge} testId="section-role-human-edge" /></div></section>
     <section className="mt-8" data-testid="section-role-entry-requirements"><div className="flex items-end justify-between"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">An open door, not a checklist</p><h2 className="serif mt-2 text-4xl">Getting started</h2></div><BriefcaseBusiness className="mb-1 text-primary" size={22} /></div><div className="mt-5 grid gap-4 md:grid-cols-3"><ContentList title="Foundation" items={content.entryRequirements.foundation} testId="section-role-entry-foundation" /><ContentList title="Helpful to have" items={content.entryRequirements.helpful} testId="section-role-entry-helpful" /><ContentList title="Proof of work" items={content.entryRequirements.proofOfWork} testId="section-role-entry-proof" /></div></section>
     <div className="mt-8 flex flex-col justify-between gap-4 rounded-[1.5rem] border border-border bg-card/70 p-5 sm:flex-row sm:items-center sm:px-7"><div><span className="mono text-[9px] uppercase tracking-[.15em] text-primary">Keep exploring</span><p className="serif mt-1 text-2xl">One role is only one possibility.</p></div><Link href={`/roles/family/${role.familySlug}`} className="inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-role-detail-family">See more in {role.familyTitle} <ArrowRight size={15} /></Link></div>
+    <RoleMentorChat slug={role.slug} roleTitle={role.title} />
   </article></Frame>;
 }
 

@@ -1,4 +1,7 @@
 import {
+  ChatWithCareerRoleMentorBody,
+  ChatWithCareerRoleMentorParams,
+  ChatWithCareerRoleMentorResponse,
   DeleteCareerProfileResponse,
   GenerateCareerRecommendationsBody,
   GenerateCareerRecommendationsResponse,
@@ -23,10 +26,11 @@ import {
 } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { asc, eq, sql } from "drizzle-orm";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { SESSION_COOKIE, getSessionId } from "../lib/auth";
 import { careerRoleSeeds } from "../lib/career-role-seeds";
+import { readResumePdf, ResumePdfError } from "../lib/resume-pdf";
+import { roleMentorSystemPrompt } from "../lib/role-mentor";
 
 const router: IRouter = Router();
 const MAX_RESUME_BYTES = 4 * 1024 * 1024;
@@ -111,6 +115,41 @@ router.get("/career/roles/:slug", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetCareerRoleResponse.parse(role));
+});
+
+router.post("/career/roles/:slug/mentor", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const params = ChatWithCareerRoleMentorParams.safeParse(req.params);
+  const body = ChatWithCareerRoleMentorBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ error: "Please send a valid message and role." });
+    return;
+  }
+  const messages = body.data.messages.map((message) => ({ ...message, content: message.content.trim() }));
+  if (messages.at(-1)?.role !== "user" || messages.some((message) => !message.content || (message.role === "user" && message.content.length > 1500))) {
+    res.status(400).json({ error: "Keep your message under 1,500 characters." });
+    return;
+  }
+  while (messages.length > 1 && messages.reduce((length, message) => length + message.content.length, 0) > 24_000) messages.shift();
+  await ensureCareerRoleSeeds();
+  const [role] = await db.select().from(careerRolesTable).where(eq(careerRolesTable.slug, params.data.slug));
+  if (!role?.content || role.status === "coming") {
+    res.status(404).json({ error: "This role's mentor is not available until its brief is ready." });
+    return;
+  }
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5.6-terra",
+      max_completion_tokens: 8192,
+      messages: [{ role: "system", content: roleMentorSystemPrompt(role) }, ...messages],
+    });
+    const reply = completion.choices[0]?.message?.content?.trim().slice(0, 6000);
+    if (!reply) throw new Error("Empty mentor reply");
+    res.json(ChatWithCareerRoleMentorResponse.parse({ reply }));
+  } catch (error) {
+    req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Role mentor unavailable");
+    res.status(503).json({ error: "The mentor couldn't reply just now. Your message is still here — try again." });
+  }
 });
 
 function parseJsonResponse(text: string | null): Record<string, unknown> {
@@ -392,29 +431,13 @@ router.post("/career/resume/parse", async (req, res): Promise<void> => {
     }
   }
 
+  let readNote = "";
   try {
     if (pdfBuffer) {
-      const loadingTask = getDocument({
-        data: new Uint8Array(pdfBuffer),
-        useSystemFonts: true,
-      });
-      const document = await loadingTask.promise;
-      const pageTexts: string[] = [];
-      for (
-        let pageNumber = 1;
-        pageNumber <= Math.min(document.numPages, 8);
-        pageNumber += 1
-      ) {
-        const page = await document.getPage(pageNumber);
-        const content = await page.getTextContent();
-        pageTexts.push(
-          content.items
-            .map((item) => ("str" in item ? item.str : ""))
-            .join(" "),
-        );
-      }
-      sourceText = pageTexts.join("\n").trim().slice(0, MAX_RESUME_TEXT);
-      await loadingTask.destroy();
+      const extracted = await readResumePdf(pdfBuffer);
+      sourceText = extracted.text;
+      readNote = extracted.usedOcr ? "Image-based PDF read using AI transcription. Check every draft fact. " : "";
+      if (extracted.totalPages > extracted.pagesRead) readNote += `Only the first ${extracted.pagesRead} pages were read. `;
     }
     if (sourceText.length < 30) {
       res.status(400).json({
@@ -475,7 +498,7 @@ router.post("/career/resume/parse", async (req, res): Promise<void> => {
       ParseCareerResumeResponse.parse({
         draft,
         personaGuess,
-        note: "Resume text is used for this draft only and is not saved.",
+        note: `${readNote}Resume text is used for this draft only and is not saved.`,
       }),
     );
   } catch (error) {
@@ -483,8 +506,8 @@ router.post("/career/resume/parse", async (req, res): Promise<void> => {
       { errorName: error instanceof Error ? error.name : "Error" },
       "Resume parsing failed",
     );
-    res.status(400).json({
-      error: "We couldn't parse this PDF. You can paste the text or fill details in yourself.",
+    res.status(error instanceof ResumePdfError ? 400 : 503).json({
+      error: error instanceof ResumePdfError ? error.message : "The resume reader couldn't finish just now. Please try again, paste the text, or enter your details.",
     });
   }
 });

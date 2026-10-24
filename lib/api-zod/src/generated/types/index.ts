@@ -37,3 +37,7 @@ export * from './recommendationResult';
 export * from './resumeParseResult';
 export * from './resumeParseResultPersonaGuess';
 export * from './resumeUpload';
+export * from './roleMentorChatInput';
+export * from './roleMentorChatResult';
+export * from './roleMentorMessage';
+export * from './roleMentorMessageRole';

@@ -5,6 +5,36 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type RoleMentorMessageRole = typeof RoleMentorMessageRole[keyof typeof RoleMentorMessageRole];
+
+
+export const RoleMentorMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface RoleMentorMessage {
+  role: RoleMentorMessageRole;
+  /**
+     * @minLength 1
+     * @maxLength 6000
+     */
+  content: string;
+}
+
+export interface RoleMentorChatInput {
+  /**
+     * @minItems 1
+     * @maxItems 12
+     */
+  messages: RoleMentorMessage[];
+}
+
+export interface RoleMentorChatResult {
+  /** @minLength 1 */
+  reply: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

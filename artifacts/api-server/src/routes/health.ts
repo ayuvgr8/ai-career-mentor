@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { pool } from "@workspace/db";
+import { databaseErrorCode } from "../lib/database-status";
 
 const router: IRouter = Router();
 
@@ -15,12 +16,15 @@ router.get("/readyz", async (req, res) => {
   try {
     await Promise.race([
       pool.query("SELECT 1"),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000)),
+      new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error("timeout"), { code: "TIMEOUT" })), 8000)),
     ]);
     res.json({ status: "ok", database: "ok" });
   } catch (error) {
-    req.log.warn({ errorName: error instanceof Error ? error.name : "Error" }, "Readiness check failed");
-    res.status(503).json({ status: "unavailable", database: "unreachable" });
+    const reason = databaseErrorCode(error);
+    req.log.warn({ reason, message: error instanceof Error ? error.message : String(error) }, "Readiness check failed");
+    // The code (e.g. ENOTFOUND, ETIMEDOUT, 28P01, 3D000) is enough to fix the
+    // deployment and carries no connection details or secrets.
+    res.status(503).json({ status: "unavailable", database: "unreachable", reason });
   }
 });
 

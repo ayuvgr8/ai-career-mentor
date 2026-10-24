@@ -5,7 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./migrations": {
+      "types": "./migrations.d.mts",
+      "default": "./migrations.mjs"
+    }
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",

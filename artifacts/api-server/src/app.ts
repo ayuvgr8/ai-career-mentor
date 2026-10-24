@@ -11,7 +11,15 @@ import { isAllowedOrigin } from "./lib/origin";
 const app: Express = express();
 // Hosted platforms (Render, Vercel) terminate TLS at a proxy. Without this,
 // req.ip is the proxy for every visitor and per-user limits become global.
-app.set("trust proxy", process.env.TRUST_PROXY ?? (process.env.NODE_ENV === "production" ? 1 : false));
+app.set("trust proxy", trustProxySetting(process.env.TRUST_PROXY));
+
+// TRUST_PROXY accepts true/false, a hop count, or Express's address list.
+function trustProxySetting(raw: string | undefined): boolean | number | string {
+  const value = raw?.trim();
+  if (!value) return process.env.NODE_ENV === "production" ? 1 : false;
+  if (value === "true" || value === "false") return value === "true";
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
 
 app.use(
   pinoHttp({

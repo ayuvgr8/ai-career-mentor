@@ -77,7 +77,11 @@ async function ensureCareerRoleSeeds(): Promise<void> {
     roleSeedPromise = db
       .insert(careerRolesTable)
       .values(careerRoleSeeds)
-      .onConflictDoNothing({ target: careerRolesTable.slug })
+      .onConflictDoUpdate({
+        target: careerRolesTable.slug,
+        set: { content: sql`excluded.content` },
+        where: sql`${careerRolesTable.status} = 'illustrative' AND ${careerRolesTable.content}->>'label' = 'Illustrative first draft'`,
+      })
       .then(() => undefined);
   }
   try {

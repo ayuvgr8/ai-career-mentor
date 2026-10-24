@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { publicOrigin } from "./lib/origin";
+import { databaseErrorCode, migrateOnBoot } from "./lib/database-status";
 import { db, pool, sessionsTable } from '@workspace/db';
 import { lt } from 'drizzle-orm';
 
@@ -32,6 +33,12 @@ const server = app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+});
+
+// Listen first so health checks pass and /api/readyz can report why the
+// database is unavailable instead of the process crash-looping.
+migrateOnBoot().catch((err: unknown) => {
+  logger.error({ reason: databaseErrorCode(err), message: err instanceof Error ? err.message : String(err) }, 'Boot migrations failed');
 });
 
 // Expired sessions are rejected on read; this sweep keeps the table small.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
@@ -28,6 +28,7 @@ import {
 import NotFound from '@/pages/not-found';
 import Landing from '@/pages/Landing';
 import { RoleMentorChat } from '@/components/RoleMentorChat';
+import { useVoiceAvailable } from '@/hooks/use-voice-available';
 import { RoleCompare } from '@/components/RoleCompare';
 import { TwoWeekPlan } from '@/components/TwoWeekPlan';
 import { DesignerDay } from '@/components/DesignerDay';
@@ -96,10 +97,12 @@ function Brand({ compact = false }: { compact?: boolean }) {
 function Frame({ children, active = '' }: { children: ReactNode; active?: string }) {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const voiceAvailable = useVoiceAvailable();
   const links = [
     { href: '/', label: 'My space' },
     { href: '/recommendations', label: 'Role ideas' },
     { href: '/roles', label: 'Explore roles' },
+    ...(voiceAvailable ? [{ href: '/voice', label: 'Voice mentor' }] : []),
     { href: '/settings', label: 'Settings' },
   ];
   return <div className="paper-grain min-h-[100dvh]">
@@ -161,7 +164,7 @@ function SignIn() {
       {config && !config.available && <div className="mt-5"><Alert>Sign-in is not configured yet. The operator needs to connect Replit Auth.</Alert></div>}
       {error && <div className="mt-5 space-y-3"><Alert>{error}</Alert><Button variant="outline" className="w-full" onClick={() => setConfigAttempt((attempt) => attempt + 1)}>Retry access check</Button></div>}
       <Button className="mt-7 w-full" onClick={enter} disabled={isLoading || busy || !config?.available || (config?.mode === 'anonymous' && !accepted)} data-testid="button-sign-in">{busy ? 'Opening…' : config?.mode === 'anonymous' ? 'Continue on this device' : 'Sign in'}</Button>
-      <p className="mt-5 text-xs leading-5 text-muted-foreground">Only confirmed profiles and plans are saved. AI requests are processed by the configured provider; its retention policy applies. Voice is not enabled.</p>
+      <p className="mt-5 text-xs leading-5 text-muted-foreground">Only confirmed profiles and plans are saved. AI requests are processed by the configured provider; its retention policy applies. The optional voice mentor sends your voice to ElevenLabs.</p>
       <Link href="/about" className="mt-5 inline-block text-sm text-primary">About Rolevo</Link>
     </section>
   </main>;
@@ -666,6 +669,13 @@ function Settings({ profile }: { profile: CareerProfileInput | null }) {
   </Frame>;
 }
 
+// The ElevenLabs SDK is large; load it only when the voice page opens.
+const VoiceMentor = lazy(() => import('@/components/VoiceMentor').then((m) => ({ default: m.VoiceMentor })));
+
+function VoicePage() {
+  return <Frame active="/voice"><div className="mx-auto max-w-3xl pt-4"><Suspense fallback={<LoadingBlock label="Loading voice mentor" />}><VoiceMentor /></Suspense></div></Frame>;
+}
+
 function readTabState<T>(key: string | null, fallback: T): T {
   if (!key) return fallback;
   try {
@@ -726,6 +736,7 @@ function PrivateRouter() {
     <Route path="/roles"><RoleCatalog /></Route>
     <Route path="/roles/family/:familySlug"><RoleFamilyRoute /></Route>
     <Route path="/roles/:slug"><RoleDetailRoute profile={profileInput} /></Route>
+    <Route path="/voice"><VoicePage /></Route>
     <Route path="/settings"><Settings profile={profileInput} /></Route>
     <Route component={NotFound} />
   </Switch>;

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'wouter';
 import { useChatWithCareerRoleMentor } from '@workspace/api-client-react';
+import { useVoiceAvailable } from '@/hooks/use-voice-available';
 import { ArrowUp, Bot, Lightbulb, LoaderCircle, Mic, RefreshCw, Sparkles } from 'lucide-react';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
@@ -14,6 +16,7 @@ const starterPrompts = [
 
 export function RoleMentorChat({ slug, roleTitle }: { slug: string; roleTitle: string }) {
   const chat = useChatWithCareerRoleMentor();
+  const voiceAvailable = useVoiceAvailable();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [failed, setFailed] = useState(false);
@@ -79,10 +82,10 @@ export function RoleMentorChat({ slug, roleTitle }: { slug: string; roleTitle: s
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground">An AI role-play grounded in this career guide.</p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2" data-slot="voice-control">
+      {voiceAvailable && <div className="flex shrink-0 items-center gap-2" data-slot="voice-control">
         <span className="hidden text-xs text-muted-foreground sm:inline">Voice agent</span>
-        <button type="button" disabled title="Voice agent coming soon" className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-semibold text-muted-foreground opacity-80 disabled:cursor-not-allowed"><Mic size={14} /> <span className="sm:hidden">Voice</span><span className="hidden sm:inline">Coming soon</span></button>
-      </div>
+        <Link href="/voice" title="Talk to the voice mentor" data-testid="link-voice-mentor" className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground no-underline transition hover:border-primary/40 hover:text-primary"><Mic size={14} /> <span className="sm:hidden">Voice</span><span className="hidden sm:inline">Talk by voice</span></Link>
+      </div>}
     </header>
 
     <div className="p-4 sm:p-6">

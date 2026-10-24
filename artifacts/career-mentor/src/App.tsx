@@ -86,7 +86,7 @@ function LoadingBlock({ label = 'Getting things ready' }: { label?: string }) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return <div className="flex items-center gap-3" data-testid="text-brand">
     <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary text-primary-foreground"><Compass size={20} strokeWidth={1.8} /></div>
-    {!compact && <div><div className="serif text-[22px] leading-none">Morrow</div><div className="mono mt-1 text-[9px] uppercase tracking-[.18em] text-muted-foreground">career, considered</div></div>}
+    {!compact && <div><div className="serif text-[22px] leading-none">Rolevo</div><div className="mono mt-1 text-[9px] uppercase tracking-[.18em] text-muted-foreground">career, considered</div></div>}
   </div>;
 }
 

@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "AI Career Mentor"
+title = "Rolevo"
 description = "A private, mobile-first career exploration app for students and early-career professionals in India. Build a career profile through adaptive questions and explore role fit before committing."
 version = "1.0.0"
 id = "artifacts/career-mentor"

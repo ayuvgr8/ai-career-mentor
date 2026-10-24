@@ -1,6 +1,8 @@
-# Morrow — AI Career Mentor
+# Rolevo — AI Career Mentor
 
 _A private, mobile-first career exploration app for students and early-career professionals in India._
+
+The product name is **Rolevo**, as specified by the owner. Use this name in all user-facing branding.
 
 ## Run & Operate
 
@@ -41,7 +43,7 @@ _A private, mobile-first career exploration app for students and early-career pr
 
 ## Product
 
-Morrow guides users through editable profile setup, optional resume extraction, adaptive Hinglish reflections (up to three choices per question), confirmed profile review, and three career-role suggestions from four supported paths. The role catalog groups sub-roles into families, links four illustrative deep-dive drafts with role-play mentor chats, and labels the remaining cards as content coming. Users can inspect, edit, and delete their stored app data.
+Rolevo guides users through editable profile setup, optional resume extraction, adaptive Hinglish reflections (up to three choices per question), confirmed profile review, and three career-role suggestions from four supported paths. The role catalog groups sub-roles into families, links four illustrative deep-dive drafts with role-play mentor chats, and labels the remaining cards as content coming. Users can inspect, edit, and delete their stored app data.
 
 ## User preferences
 

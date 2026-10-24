@@ -3,6 +3,9 @@ import {
   GenerateCareerRecommendationsBody,
   GenerateCareerRecommendationsResponse,
   GetCareerProfileResponse,
+  GetCareerRoleParams,
+  GetCareerRoleResponse,
+  GetCareerRolesResponse,
   GetNextCareerQuestionBody,
   GetNextCareerQuestionResponse,
   ParseCareerResumeBody,
@@ -12,21 +15,24 @@ import {
 } from "@workspace/api-zod";
 import {
   careerProfilesTable,
+  careerRolesTable,
   db,
   sessionsTable,
   usersTable,
   type CareerProfileData,
 } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { SESSION_COOKIE, getSessionId } from "../lib/auth";
+import { careerRoleSeeds } from "../lib/career-role-seeds";
 
 const router: IRouter = Router();
 const MAX_RESUME_BYTES = 4 * 1024 * 1024;
 const MAX_RESUME_TEXT = 30_000;
 const QUESTION_LIMIT = 7;
+let roleSeedPromise: Promise<void> | null = null;
 
 type Answer = { topic: string; answer: string };
 
@@ -61,6 +67,51 @@ function requireUser(req: Request, res: Response): string | null {
   }
   return req.user.id;
 }
+
+async function ensureCareerRoleSeeds(): Promise<void> {
+  if (!roleSeedPromise) {
+    roleSeedPromise = db
+      .insert(careerRolesTable)
+      .values(careerRoleSeeds)
+      .onConflictDoNothing({ target: careerRolesTable.slug })
+      .then(() => undefined);
+  }
+  try {
+    await roleSeedPromise;
+  } catch (error) {
+    roleSeedPromise = null;
+    throw error;
+  }
+}
+
+router.get("/career/roles", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  await ensureCareerRoleSeeds();
+  const roles = await db
+    .select()
+    .from(careerRolesTable)
+    .orderBy(asc(careerRolesTable.sortOrder));
+  res.json(GetCareerRolesResponse.parse({ roles }));
+});
+
+router.get("/career/roles/:slug", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const params = GetCareerRoleParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Choose a valid role." });
+    return;
+  }
+  await ensureCareerRoleSeeds();
+  const [role] = await db
+    .select()
+    .from(careerRolesTable)
+    .where(eq(careerRolesTable.slug, params.data.slug));
+  if (!role) {
+    res.status(404).json({ error: "Role not found." });
+    return;
+  }
+  res.json(GetCareerRoleResponse.parse(role));
+});
 
 function parseJsonResponse(text: string | null): Record<string, unknown> {
   if (!text) throw new Error("The AI response was empty.");

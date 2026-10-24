@@ -354,3 +354,107 @@ export const GenerateCareerRecommendationsResponse = zod.object({
 })
 
 
+/**
+ * @summary List role families and their sub-role cards
+ */
+export const getCareerRolesResponseRolesItemContentOneDayInLifeMin = 9;
+export const getCareerRolesResponseRolesItemContentOneDayInLifeMax = 9;
+
+export const getCareerRolesResponseRolesItemContentOneJourneyMin = 5;
+export const getCareerRolesResponseRolesItemContentOneJourneyMax = 5;
+
+
+
+export const GetCareerRolesResponse = zod.object({
+  "roles": zod.array(zod.object({
+  "slug": zod.string(),
+  "familySlug": zod.string(),
+  "familyTitle": zod.string(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.enum(['illustrative', 'coming']),
+  "sortOrder": zod.number().int(),
+  "content": zod.union([zod.object({
+  "label": zod.enum(['Illustrative first draft']),
+  "whyItFits": zod.string(),
+  "dayInLife": zod.array(zod.object({
+  "time": zod.string(),
+  "activity": zod.string()
+})).min(getCareerRolesResponseRolesItemContentOneDayInLifeMin).max(getCareerRolesResponseRolesItemContentOneDayInLifeMax),
+  "metrics": zod.array(zod.string()),
+  "stakeholders": zod.array(zod.string()),
+  "journey": zod.array(zod.object({
+  "period": zod.string(),
+  "focus": zod.string(),
+  "evidence": zod.string()
+})).min(getCareerRolesResponseRolesItemContentOneJourneyMin).max(getCareerRolesResponseRolesItemContentOneJourneyMax),
+  "aiImpact": zod.object({
+  "changing": zod.string(),
+  "tasksToWatch": zod.array(zod.string()),
+  "humanEdge": zod.array(zod.string())
+}),
+  "entryRequirements": zod.object({
+  "foundation": zod.array(zod.string()),
+  "helpful": zod.array(zod.string()),
+  "proofOfWork": zod.array(zod.string())
+})
+}),zod.null()])
+}))
+})
+
+
+/**
+ * @summary Read one role deep-dive pack
+ */
+export const getCareerRolePathSlugMax = 100;
+
+
+
+export const GetCareerRoleParams = zod.object({
+  "slug": zod.coerce.string().min(1).max(getCareerRolePathSlugMax)
+})
+
+export const getCareerRoleResponseContentOneDayInLifeMin = 9;
+export const getCareerRoleResponseContentOneDayInLifeMax = 9;
+
+export const getCareerRoleResponseContentOneJourneyMin = 5;
+export const getCareerRoleResponseContentOneJourneyMax = 5;
+
+
+
+export const GetCareerRoleResponse = zod.object({
+  "slug": zod.string(),
+  "familySlug": zod.string(),
+  "familyTitle": zod.string(),
+  "title": zod.string(),
+  "summary": zod.string(),
+  "status": zod.enum(['illustrative', 'coming']),
+  "sortOrder": zod.number().int(),
+  "content": zod.union([zod.object({
+  "label": zod.enum(['Illustrative first draft']),
+  "whyItFits": zod.string(),
+  "dayInLife": zod.array(zod.object({
+  "time": zod.string(),
+  "activity": zod.string()
+})).min(getCareerRoleResponseContentOneDayInLifeMin).max(getCareerRoleResponseContentOneDayInLifeMax),
+  "metrics": zod.array(zod.string()),
+  "stakeholders": zod.array(zod.string()),
+  "journey": zod.array(zod.object({
+  "period": zod.string(),
+  "focus": zod.string(),
+  "evidence": zod.string()
+})).min(getCareerRoleResponseContentOneJourneyMin).max(getCareerRoleResponseContentOneJourneyMax),
+  "aiImpact": zod.object({
+  "changing": zod.string(),
+  "tasksToWatch": zod.array(zod.string()),
+  "humanEdge": zod.array(zod.string())
+}),
+  "entryRequirements": zod.object({
+  "foundation": zod.array(zod.string()),
+  "helpful": zod.array(zod.string()),
+  "proofOfWork": zod.array(zod.string())
+})
+}),zod.null()])
+})
+
+

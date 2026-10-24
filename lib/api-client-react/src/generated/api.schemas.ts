@@ -231,6 +231,78 @@ export interface RecommendationResult {
   recommendations: CareerRecommendation[];
 }
 
+export interface CareerRoleDayBlock {
+  time: string;
+  activity: string;
+}
+
+export interface CareerRoleJourneyStep {
+  period: string;
+  focus: string;
+  evidence: string;
+}
+
+export interface CareerRoleAiImpact {
+  changing: string;
+  tasksToWatch: string[];
+  humanEdge: string[];
+}
+
+export interface CareerRoleEntryRequirements {
+  foundation: string[];
+  helpful: string[];
+  proofOfWork: string[];
+}
+
+export type CareerRoleContentLabel = typeof CareerRoleContentLabel[keyof typeof CareerRoleContentLabel];
+
+
+export const CareerRoleContentLabel = {
+  Illustrative_first_draft: 'Illustrative first draft',
+} as const;
+
+export interface CareerRoleContent {
+  label: CareerRoleContentLabel;
+  whyItFits: string;
+  /**
+     * @minItems 9
+     * @maxItems 9
+     */
+  dayInLife: CareerRoleDayBlock[];
+  metrics: string[];
+  stakeholders: string[];
+  /**
+     * @minItems 5
+     * @maxItems 5
+     */
+  journey: CareerRoleJourneyStep[];
+  aiImpact: CareerRoleAiImpact;
+  entryRequirements: CareerRoleEntryRequirements;
+}
+
+export type CareerRoleRecordStatus = typeof CareerRoleRecordStatus[keyof typeof CareerRoleRecordStatus];
+
+
+export const CareerRoleRecordStatus = {
+  illustrative: 'illustrative',
+  coming: 'coming',
+} as const;
+
+export interface CareerRoleRecord {
+  slug: string;
+  familySlug: string;
+  familyTitle: string;
+  title: string;
+  summary: string;
+  status: CareerRoleRecordStatus;
+  sortOrder: number;
+  content: CareerRoleContent | null;
+}
+
+export interface CareerRoleCatalog {
+  roles: CareerRoleRecord[];
+}
+
 export type BeginBrowserLoginParams = {
 returnTo?: string;
 };

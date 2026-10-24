@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { Link, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
 import {
   useDeleteCareerProfile,
   useGenerateCareerRecommendations,
   useGetCareerProfile,
   useGetNextCareerQuestion,
+  useGetCareerRoles,
+  useGetCareerRole,
   useParseCareerResume,
   useSaveCareerProfile,
   getGetCareerProfileQueryKey,
+  getGetCareerRoleQueryKey,
   type CareerProfileInput,
   type AnswerEntry,
   type NextQuestionResult,
   type RecommendationResult,
+  type CareerRoleRecord,
+  type CareerRoleContent,
 } from '@workspace/api-client-react';
 import {
   ArrowLeft, ArrowRight, Check, ChevronRight, Compass, FileText, Heart, LoaderCircle,
-  LockKeyhole, LogOut, MapPin, Menu, ShieldCheck, Sparkles, Trash2, X,
+  LockKeyhole, LogOut, MapPin, Menu, ShieldCheck, Sparkles, Trash2, X, Clock3, Users,
+  BookOpen, BriefcaseBusiness, Layers3, RefreshCw,
 } from 'lucide-react';
 import NotFound from '@/pages/not-found';
 
@@ -81,6 +87,7 @@ function Frame({ children, active = '' }: { children: ReactNode; active?: string
   const links = [
     { href: '/', label: 'My space' },
     { href: '/recommendations', label: 'Role ideas' },
+    { href: '/roles', label: 'Explore roles' },
     { href: '/settings', label: 'Settings' },
   ];
   return <div className="paper-grain min-h-[100dvh]">
@@ -89,7 +96,7 @@ function Frame({ children, active = '' }: { children: ReactNode; active?: string
       <button className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card md:hidden" aria-label="Open navigation" onClick={() => setMobileOpen(!mobileOpen)} data-testid="button-menu">{mobileOpen ? <X size={19} /> : <Menu size={19} />}</button>
       <nav className={`${mobileOpen ? 'absolute left-4 right-4 top-[76px] flex flex-col rounded-3xl border border-border bg-card p-3 shadow-xl' : 'hidden'} md:static md:flex md:flex-row md:items-center md:gap-2 md:border-0 md:bg-transparent md:p-0 md:shadow-none`} aria-label="Main navigation">
         {links.map((link) => <Link key={link.href} href={link.href} data-testid={`link-nav-${link.label.toLowerCase().replaceAll(' ', '-')}`}
-          onClick={() => setMobileOpen(false)} className={`rounded-full px-4 py-2.5 text-sm no-underline transition ${active === link.href ? 'bg-secondary font-semibold text-primary' : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'}`}>{link.label}</Link>)}
+          onClick={() => setMobileOpen(false)} className={`rounded-full px-4 py-2.5 text-sm no-underline transition ${active === link.href || (link.href === '/roles' && active.startsWith('/roles')) ? 'bg-secondary font-semibold text-primary' : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'}`}>{link.label}</Link>)}
         <div className="mx-3 hidden h-8 border-l border-border md:block" />
         <button onClick={logout} className="rounded-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-secondary md:text-center" data-testid="button-sign-out-nav"><LogOut className="mr-2 inline" size={15} />Sign out</button>
       </nav>
@@ -418,8 +425,90 @@ const roleNotes: Record<string, string> = {
   'Content Creation / Design': 'Turn observations into clear stories, experiences, and visual worlds.',
   'Product Manager': 'Bring people, problems, and possibilities together to shape what gets built.',
 };
+function RoleLoading() {
+  return <div className="mx-auto max-w-5xl pt-8" data-testid="status-roles-loading" aria-label="Loading role catalog">
+    <div className="h-3 w-28 animate-pulse rounded-full bg-secondary" /><div className="mt-5 h-12 w-2/3 animate-pulse rounded-2xl bg-secondary" />
+    <div className="mt-8 grid gap-4 sm:grid-cols-2">{[1, 2, 3, 4].map((item) => <div key={item} className="h-40 animate-pulse rounded-[1.7rem] bg-secondary/70" />)}</div>
+  </div>;
+}
+
+function RoleCatalog() {
+  const catalog = useGetCareerRoles();
+  if (catalog.isLoading) return <Frame active="/roles"><RoleLoading /></Frame>;
+  if (catalog.isError) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert>We couldn’t load the role catalog just now.</Alert><Button className="mt-4" onClick={() => void catalog.refetch()} data-testid="button-retry-role-catalog"><RefreshCw size={16} /> Try again</Button></div></Frame>;
+  const families = Array.from(new Map((catalog.data?.roles || []).map((role) => [role.familySlug, { slug: role.familySlug, title: role.familyTitle }])).values());
+  return <Frame active="/roles"><div className="mx-auto max-w-5xl pt-4">
+    <p className="mono text-[10px] uppercase tracking-[.2em] text-primary">A field guide to work</p>
+    <h1 className="serif mt-3 max-w-3xl text-5xl leading-[1.02] sm:text-7xl" data-testid="text-role-catalog-title">Explore the shape<br className="hidden sm:block" /> of a working life.</h1>
+    <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground" data-testid="text-role-catalog-intro">Start with a broad direction, then look closer at the kinds of work inside it. These are invitations to explore, not prescriptions.</p>
+    {families.length === 0 ? <div className="mt-9 rounded-[1.7rem] border border-dashed border-border bg-card/60 p-8 text-center" data-testid="status-role-catalog-empty"><BookOpen className="mx-auto text-primary" size={24} /><h2 className="serif mt-4 text-3xl">The field guide is being prepared</h2><p className="mt-2 text-sm text-muted-foreground">Role families will appear here when they’re ready.</p></div> :
+      <div className="mt-9 grid gap-4 md:grid-cols-2" data-testid="list-role-families">{families.map((family, index) => {
+        const roles = (catalog.data?.roles || []).filter((item) => item.familySlug === family.slug).sort((a, b) => a.sortOrder - b.sortOrder);
+        return <Link key={family.slug} href={`/roles/family/${family.slug}`} className={`group relative flex min-h-48 flex-col justify-between overflow-hidden rounded-[1.8rem] border p-6 no-underline transition hover:-translate-y-1 hover:border-primary/50 sm:p-7 ${index === 0 ? 'border-primary/30 bg-[#e7eee7]' : 'border-border bg-card/80'}`} data-testid={`link-role-family-${family.slug}`}>
+          <div className="absolute -right-6 -top-10 h-36 w-36 rounded-full border border-primary/10 transition-transform group-hover:scale-110" />
+          <div className="relative"><div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.18em] text-primary">Family 0{index + 1}</span><Layers3 size={18} className="text-primary/70" /></div><h2 className="serif mt-6 text-3xl sm:text-4xl" data-testid={`text-family-title-${family.slug}`}>{family.title}</h2><p className="mt-2 text-sm text-muted-foreground" data-testid={`text-family-count-${family.slug}`}>{roles.length} {roles.length === 1 ? 'role' : 'roles'} to explore</p></div>
+          <span className="relative mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">Choose a direction <ArrowRight size={16} /></span>
+        </Link>;
+      })}</div>}
+  </div></Frame>;
+}
+
+function RoleFamilyPicker({ familySlug }: { familySlug?: string }) {
+  const catalog = useGetCareerRoles();
+  if (catalog.isLoading) return <Frame active="/roles"><RoleLoading /></Frame>;
+  if (catalog.isError) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert>We couldn’t load this role family.</Alert><Button className="mt-4" onClick={() => void catalog.refetch()} data-testid="button-retry-role-family">Try again</Button></div></Frame>;
+  const familyRoles = (catalog.data?.roles || []).filter((role) => role.familySlug === familySlug).sort((a, b) => a.sortOrder - b.sortOrder);
+  const familyTitle = familyRoles[0]?.familyTitle;
+  return <Frame active="/roles"><div className="mx-auto max-w-4xl pt-4">
+    <Link href="/roles" className="inline-flex items-center gap-2 text-sm text-muted-foreground no-underline hover:text-primary" data-testid="link-family-back"><ArrowLeft size={15} /> All role families</Link>
+    {!familyTitle ? <div className="mt-10 rounded-[1.7rem] border border-dashed border-border bg-card/60 p-8 text-center" data-testid="status-role-family-empty"><h1 className="serif text-4xl">This family isn’t in the catalog</h1><p className="mt-3 text-sm text-muted-foreground">Choose a family from the role catalog to continue.</p><Link href="/roles" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-family-empty-catalog">Browse role families <ArrowRight size={15} /></Link></div> :
+      <>
+        <p className="mono mt-10 text-[10px] uppercase tracking-[.2em] text-primary">Choose a thread</p><h1 className="serif mt-3 text-5xl leading-tight sm:text-6xl" data-testid="text-role-family-title">{familyTitle}</h1>
+        <p className="mt-4 max-w-xl leading-7 text-muted-foreground">Different specialities can sit under the same broad direction. Pick one to see the work more closely.</p>
+        <div className="mt-8 space-y-3" data-testid={`list-family-roles-${familySlug}`}>{familyRoles.map((role, index) => {
+          const ready = role.status === 'illustrative' && Boolean(role.content);
+          const contentLabel = <span className="mono inline-flex w-fit rounded-full border border-border px-3 py-2 text-[9px] uppercase tracking-[.15em] text-muted-foreground" data-testid={`status-role-coming-${role.slug}`}>Content coming</span>;
+          const text = <div className="flex gap-4"><span className="mono mt-1 text-xs text-primary">0{index + 1}</span><div><h2 className="serif text-3xl" data-testid={`text-role-title-${role.slug}`}>{role.title}</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground" data-testid={`text-role-summary-${role.slug}`}>{role.summary}</p></div></div>;
+          return ready ? <Link href={`/roles/${role.slug}`} key={role.slug} className="group flex flex-col justify-between gap-4 rounded-[1.5rem] border border-border bg-card/80 p-5 no-underline transition hover:border-primary/45 sm:flex-row sm:items-center sm:p-6" data-testid={`link-role-detail-${role.slug}`}>{text}<span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-[#e7eee7] px-4 py-2 text-xs font-semibold text-primary sm:self-auto">Read the field notes <ArrowRight size={14} /></span></Link> :
+            <div key={role.slug} className="flex flex-col justify-between gap-3 rounded-[1.5rem] border border-border/80 bg-card/50 p-5 sm:flex-row sm:items-center sm:p-6" data-testid={`row-role-coming-${role.slug}`}>{text}{contentLabel}</div>;
+        })}</div>
+      </>}
+  </div></Frame>;
+}
+
+function ContentList({ title, items, testId }: { title: string; items: string[]; testId: string }) {
+  return <section className="rounded-[1.5rem] border border-border bg-card/75 p-5 sm:p-6" data-testid={testId}><h3 className="serif text-2xl">{title}</h3><ul className="mt-4 space-y-3">{items.map((item, index) => <li key={`${index}-${item}`} className="flex gap-3 text-sm leading-6 text-muted-foreground" data-testid={`${testId}-item-${index + 1}`}><span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[hsl(var(--accent))]" /><span>{item}</span></li>)}</ul></section>;
+}
+
+function RoleDeepDive({ slug }: { slug?: string }) {
+  const roleQuery = useGetCareerRole(slug || '', { query: { enabled: Boolean(slug), queryKey: getGetCareerRoleQueryKey(slug || '') } });
+  if (!slug) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert kind="info">Choose a role from the catalog to open its field notes.</Alert><Link href="/roles" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-coming-to-catalog">Back to role catalog <ArrowRight size={15} /></Link></div></Frame>;
+  if (roleQuery.isLoading) return <Frame active="/roles"><div className="mx-auto max-w-4xl pt-10" data-testid="status-role-detail-loading"><div className="h-3 w-32 animate-pulse rounded-full bg-secondary" /><div className="mt-5 h-14 w-3/4 animate-pulse rounded-2xl bg-secondary" /><div className="mt-8 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /><div className="mt-4 h-48 animate-pulse rounded-[1.7rem] bg-secondary/70" /></div></Frame>;
+  if (roleQuery.isError) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert>We couldn’t load these field notes.</Alert><Button className="mt-4" onClick={() => void roleQuery.refetch()} data-testid="button-retry-role-detail">Try again</Button></div></Frame>;
+  const role = roleQuery.data as CareerRoleRecord | undefined;
+  if (!role) return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><Alert kind="info">This role could not be found in the catalog.</Alert><Link href="/roles" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-missing-role-catalog">Back to role catalog <ArrowRight size={15} /></Link></div></Frame>;
+  if (role.status !== 'illustrative' || !role.content || role.content.label !== 'Illustrative first draft') return <Frame active="/roles"><div className="mx-auto max-w-xl pt-14"><div className="rounded-[1.7rem] border border-border bg-card p-7" data-testid="status-role-missing-content"><span className="mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Content coming</span><h1 className="serif mt-3 text-4xl">{role.title}</h1><p className="mt-3 text-sm text-muted-foreground">The role field notes are not available yet.</p><Link href={`/roles/family/${role.familySlug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-role-family-return">Back to {role.familyTitle} <ArrowRight size={15} /></Link></div></div></Frame>;
+  const content = role.content as CareerRoleContent;
+  return <Frame active="/roles"><article className="mx-auto max-w-5xl pt-4">
+    <Link href={`/roles/family/${role.familySlug}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground no-underline hover:text-primary" data-testid="link-role-detail-back"><ArrowLeft size={15} /> {role.familyTitle}</Link>
+    <header className="relative mt-8 overflow-hidden rounded-[2rem] bg-primary p-6 text-primary-foreground sm:p-10"><div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-white/15" /><div className="absolute -right-7 -top-10 h-48 w-48 rounded-full border border-white/15" /><div className="relative max-w-3xl">
+      <span className="mono inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-2 text-[10px] uppercase tracking-[.14em]" data-testid="status-role-illustrative-label">Illustrative first draft</span>
+      <p className="mono mt-7 text-[10px] uppercase tracking-[.18em] text-white/65" data-testid="text-role-detail-family">{role.familyTitle}</p><h1 className="serif mt-3 text-5xl leading-[.98] sm:text-7xl" data-testid="text-role-detail-title">{role.title}</h1><p className="mt-5 max-w-2xl text-base leading-7 text-white/80" data-testid="text-role-detail-summary">{role.summary}</p>
+    </div></header>
+    <section className="mt-5 grid gap-4 md:grid-cols-[1.2fr_.8fr]"><div className="rounded-[1.7rem] border border-primary/20 bg-[#e7eee7] p-6 sm:p-8" data-testid="section-role-why-fit"><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">A possible point of connection</p><h2 className="serif mt-3 text-3xl">Why this might fit</h2><p className="mt-3 text-sm leading-7 text-foreground/80" data-testid="text-role-why-fit">{content.whyItFits}</p></div>
+      <div className="flex flex-col justify-between rounded-[1.7rem] border border-border bg-card p-6 sm:p-8"><div className="flex items-center gap-3 text-primary"><Clock3 size={19} /><span className="mono text-[9px] uppercase tracking-[.16em]">A day, in nine beats</span></div><p className="serif mt-5 text-3xl leading-snug">The rhythm of the work.</p><p className="mt-2 text-sm leading-6 text-muted-foreground">An illustrative slice of a day, not a fixed schedule.</p><span className="mono mt-6 text-xs text-primary" data-testid="text-role-day-count">{content.dayInLife.length} time / activity blocks</span></div></section>
+    <section className="mt-8" data-testid="section-role-day-in-life"><div className="mb-4 flex items-end justify-between"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">Day in the life</p><h2 className="serif mt-2 text-4xl">A day in nine beats</h2></div><Clock3 className="mb-1 text-primary" size={21} /></div><div className="overflow-hidden rounded-[1.7rem] border border-border bg-card">{content.dayInLife.map((block, index) => <div key={`${block.time}-${index}`} className="grid gap-2 border-b border-border/70 px-5 py-4 last:border-0 sm:grid-cols-[115px_1fr] sm:gap-5" data-testid={`row-role-day-${index + 1}`}><span className="mono text-[10px] uppercase tracking-[.1em] text-primary" data-testid={`text-role-day-time-${index + 1}`}>{block.time}</span><p className="text-sm leading-6 text-foreground/80" data-testid={`text-role-day-activity-${index + 1}`}>{block.activity}</p></div>)}</div></section>
+    <section className="mt-8 grid gap-4 md:grid-cols-2"><ContentList title="What the work measures" items={content.metrics} testId="section-role-metrics" /><ContentList title="People in the room" items={content.stakeholders} testId="section-role-stakeholders" /></section>
+    <section className="mt-8" data-testid="section-role-journey"><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">A possible learning arc</p><h2 className="serif mt-2 text-4xl">Five steps into the work</h2><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{content.journey.map((step, index) => <div key={`${step.period}-${index}`} className="relative rounded-[1.4rem] border border-border bg-card/80 p-5" data-testid={`card-role-journey-${index + 1}`}><span className="mono text-[9px] uppercase tracking-[.15em] text-primary" data-testid={`text-role-journey-period-${index + 1}`}>{step.period}</span><h3 className="serif mt-4 text-2xl leading-tight" data-testid={`text-role-journey-focus-${index + 1}`}>{step.focus}</h3><p className="mt-3 text-xs leading-5 text-muted-foreground" data-testid={`text-role-journey-evidence-${index + 1}`}>{step.evidence}</p></div>)}</div></section>
+    <section className="mt-8 rounded-[1.8rem] border border-border bg-[#f4ead6] p-6 sm:p-8" data-testid="section-role-ai-impact"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary text-primary-foreground"><Sparkles size={18} /></div><div><p className="mono text-[9px] uppercase tracking-[.16em] text-primary">Tools are changing the work</p><h2 className="serif mt-1 text-3xl">Where AI may fit</h2></div></div><p className="mt-5 max-w-3xl text-sm leading-7 text-foreground/80" data-testid="text-role-ai-changing">{content.aiImpact.changing}</p><div className="mt-6 grid gap-4 md:grid-cols-2"><ContentList title="Tasks to watch" items={content.aiImpact.tasksToWatch} testId="section-role-ai-tasks" /><ContentList title="The human edge" items={content.aiImpact.humanEdge} testId="section-role-human-edge" /></div></section>
+    <section className="mt-8" data-testid="section-role-entry-requirements"><div className="flex items-end justify-between"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">An open door, not a checklist</p><h2 className="serif mt-2 text-4xl">Getting started</h2></div><BriefcaseBusiness className="mb-1 text-primary" size={22} /></div><div className="mt-5 grid gap-4 md:grid-cols-3"><ContentList title="Foundation" items={content.entryRequirements.foundation} testId="section-role-entry-foundation" /><ContentList title="Helpful to have" items={content.entryRequirements.helpful} testId="section-role-entry-helpful" /><ContentList title="Proof of work" items={content.entryRequirements.proofOfWork} testId="section-role-entry-proof" /></div></section>
+    <div className="mt-8 flex flex-col justify-between gap-4 rounded-[1.5rem] border border-border bg-card/70 p-5 sm:flex-row sm:items-center sm:px-7"><div><span className="mono text-[9px] uppercase tracking-[.15em] text-primary">Keep exploring</span><p className="serif mt-1 text-2xl">One role is only one possibility.</p></div><Link href={`/roles/family/${role.familySlug}`} className="inline-flex items-center gap-2 text-sm font-semibold text-primary no-underline" data-testid="link-role-detail-family">See more in {role.familyTitle} <ArrowRight size={15} /></Link></div>
+  </article></Frame>;
+}
+
 function Recommendations({ profile, answers }: { profile: CareerProfileInput | null; answers: AnswerEntry[] }) {
   const generate = useGenerateCareerRecommendations();
+  const roleCatalog = useGetCareerRoles();
   const [result, setResult] = useState<RecommendationResult | null>(null);
   const [error, setError] = useState('');
   const request = useCallback(() => {
@@ -430,6 +519,13 @@ function Recommendations({ profile, answers }: { profile: CareerProfileInput | n
   useEffect(() => { if (profile && !result && !generate.isPending && !error) request(); }, [profile, result, generate.isPending, error, request]);
   const allRoles = ['Software Engineer', 'Marketing', 'Content Creation / Design', 'Product Manager'];
   const remaining = allRoles.filter((role) => !result?.recommendations.some((rec) => rec.role === role));
+  const familyForRecommendation = (recommendation: string) => {
+    const target = recommendation === 'Software Engineer' ? ['software', 'engineering', 'technology'] :
+      recommendation === 'Marketing' ? ['marketing', 'growth'] :
+      recommendation === 'Content Creation / Design' ? ['design', 'creative', 'content'] : ['product'];
+    const match = roleCatalog.data?.roles.find((role) => target.some((word) => `${role.familyTitle} ${role.familySlug}`.toLowerCase().includes(word)));
+    return match ? `/roles/family/${match.familySlug}` : '/roles';
+  };
   return <Frame active="/recommendations">
     <div className="mx-auto max-w-5xl pt-4">
       <p className="mono text-[10px] uppercase tracking-[.2em] text-primary">Ideas to try on · not a verdict</p>
@@ -437,13 +533,13 @@ function Recommendations({ profile, answers }: { profile: CareerProfileInput | n
       <p className="mt-4 max-w-2xl leading-7 text-muted-foreground">These are starting points based on what you shared — not a score of your potential. Follow the thread that feels interesting.</p>
       {generate.isPending && <div className="mt-9 grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="h-64 animate-pulse rounded-[1.7rem] bg-secondary/70" />)}</div>}
       {error && <div className="mt-8"><Alert>{error}</Alert><Button onClick={request} className="mt-4">Try again</Button></div>}
-      {result && <div className="mt-9 grid gap-4 md:grid-cols-3">{result.recommendations.map((rec, index) => <article key={rec.role} className={`relative flex min-h-72 flex-col rounded-[1.7rem] border p-6 ${index === 0 ? 'border-primary/40 bg-[#e7eee7]' : 'border-border bg-card'}`} data-testid={`card-role-${index}`}>
-        <div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-xs text-primary">{rec.fit}% fit</span></div>
-        <h2 className="serif mt-7 text-3xl leading-tight">{rec.role}</h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">{rec.why || roleNotes[rec.role]}</p>
+      {result && <div className="mt-9 grid gap-4 md:grid-cols-3">{result.recommendations.map((rec, index) => <Link href={familyForRecommendation(rec.role)} key={rec.role} className={`relative flex min-h-72 flex-col rounded-[1.7rem] border p-6 no-underline transition hover:-translate-y-1 hover:border-primary/45 ${index === 0 ? 'border-primary/40 bg-[#e7eee7]' : 'border-border bg-card'}`} data-testid={`card-role-${index}`}>
+        <div className="flex items-center justify-between"><span className="mono text-[9px] uppercase tracking-[.16em] text-muted-foreground">Possibility 0{index + 1}</span><span className="mono text-xs text-primary" data-testid={`text-role-fit-${index}`}>{rec.fit}% fit</span></div>
+        <h2 className="serif mt-7 text-3xl leading-tight" data-testid={`text-recommendation-role-${index}`}>{rec.role}</h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground" data-testid={`text-recommendation-why-${index}`}>{rec.why || roleNotes[rec.role]}</p>
         {rec.quote && <blockquote className="serif mt-auto border-l-2 border-[hsl(var(--accent))] pl-3 pt-6 text-lg italic leading-6">“{rec.quote}”</blockquote>}
-        <div className="mt-5 h-1.5 rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Math.max(rec.fit, 1), 100)}%` }} /></div>
-      </article>)}</div>}
+        <div className="mt-5 h-1.5 rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Math.max(rec.fit, 1), 100)}%` }} /></div><span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-primary">Explore this family <ArrowRight size={14} /></span>
+      </Link>)}</div>}
       <section className="mt-8 rounded-[1.7rem] border border-border bg-card/70 p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="mono text-[9px] uppercase tracking-[.18em] text-primary">The wider field</p><h2 className="serif mt-2 text-3xl">Explore the other directions</h2><p className="mt-2 text-sm text-muted-foreground">Four role families, many ways to make them your own.</p></div><button onClick={request} disabled={generate.isPending || !profile} className="inline-flex items-center gap-2 text-sm font-semibold text-primary" data-testid="button-refresh-roles">{generate.isPending ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />} Refresh role ideas</button></div>
         <div className="mt-6 flex flex-wrap gap-2">{(result ? remaining : allRoles).map((role) => <span key={role} className="rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground" data-testid={`text-explore-role-${role.toLowerCase().replaceAll(/[^a-z]+/g, '-')}`}>{role}</span>)}</div>
@@ -510,9 +606,22 @@ function PrivateRouter() {
     <Route path="/questions"><Questions draft={resolvedDraft} setDraft={setDraft} answers={answers} setAnswers={setAnswers} /></Route>
     <Route path="/profile-review"><ProfileReview draft={resolvedDraft} setDraft={setDraft} onSaved={saved} /></Route>
     <Route path="/recommendations"><Recommendations profile={profileInput} answers={answers} /></Route>
+    <Route path="/roles"><RoleCatalog /></Route>
+    <Route path="/roles/family/:familySlug"><RoleFamilyRoute /></Route>
+    <Route path="/roles/:slug"><RoleDetailRoute /></Route>
     <Route path="/settings"><Settings profile={profileInput} /></Route>
     <Route component={NotFound} />
   </Switch>;
+}
+
+function RoleFamilyRoute() {
+  const params = useParams<{ familySlug: string }>();
+  return <RoleFamilyPicker familySlug={params.familySlug} />;
+}
+
+function RoleDetailRoute() {
+  const params = useParams<{ slug: string }>();
+  return <RoleDeepDive slug={params.slug} />;
 }
 
 function App() {

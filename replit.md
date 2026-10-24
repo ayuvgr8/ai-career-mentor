@@ -26,7 +26,8 @@ _A private, mobile-first career exploration app for students and early-career pr
 - `artifacts/career-mentor` — React + Tailwind app and onboarding screens.
 - `artifacts/api-server` — Express auth, profile, resume parsing, adaptive questions, and recommendations.
 - `lib/api-spec/openapi.yaml` — API contract; run codegen after changes.
-- `lib/db/src/schema` — Drizzle schema for auth sessions, users, and confirmed career profiles.
+- `lib/db/src/schema` — Drizzle schema for auth sessions, users, confirmed career profiles, and role packs.
+- `artifacts/api-server/src/lib/career-role-seeds.ts` — idempotent starter content for role packs and coming-soon sub-roles.
 - `lib/integrations-openai-ai-server` — Replit-managed OpenAI SDK client.
 
 ## Architecture decisions
@@ -35,10 +36,11 @@ _A private, mobile-first career exploration app for students and early-career pr
 - Only the profile explicitly confirmed by the user is stored. Assessment answers and resume contents are processed in memory and are not persisted.
 - AI calls happen only on the server. Resume text and assessment answers are sent for the requested inference but are not stored.
 - Account deletion removes the app user record, confirmed career profile, and their sessions; it does not delete the user's separate identity-provider account.
+- Role deep-dives are served from the seeded `career_roles` table. The four launch packs are illustrative drafts; no salary data is included.
 
 ## Product
 
-Morrow guides users through editable profile setup, optional resume extraction, adaptive Hinglish reflections, confirmed profile review, and three career-role suggestions from four supported paths. Users can inspect, edit, and delete their stored app data.
+Morrow guides users through editable profile setup, optional resume extraction, adaptive Hinglish reflections, confirmed profile review, and three career-role suggestions from four supported paths. The role catalog groups sub-roles into families, links four illustrative deep-dive drafts, and labels the remaining cards as content coming. Users can inspect, edit, and delete their stored app data.
 
 ## User preferences
 

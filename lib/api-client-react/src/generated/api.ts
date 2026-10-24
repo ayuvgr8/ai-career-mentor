@@ -25,6 +25,8 @@ import type {
   CareerProfile,
   CareerProfileEnvelope,
   CareerProfileInput,
+  CareerRoleCatalog,
+  CareerRoleRecord,
   DeleteProfileResult,
   HealthStatus,
   LogoutBrowserSessionParams,
@@ -965,4 +967,158 @@ export const useGenerateCareerRecommendations = <TError = ErrorType<void>,
       > => {
       return useMutation(getGenerateCareerRecommendationsMutationOptions(options));
     }
+
+export const getGetCareerRolesUrl = () => {
+
+
+
+
+  return `/api/career/roles`
+}
+
+/**
+ * @summary List role families and their sub-role cards
+ */
+export const getCareerRoles = async ( options?: Parameters<typeof customFetch>[1]): Promise<CareerRoleCatalog> => {
+
+  return customFetch<CareerRoleCatalog>(getGetCareerRolesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCareerRolesQueryKey = () => {
+    return [
+    `/api/career/roles`
+    ] as const;
+    }
+
+
+export const getGetCareerRolesQueryOptions = <TData = Awaited<ReturnType<typeof getCareerRoles>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCareerRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCareerRolesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCareerRoles>>> = ({ signal }) => getCareerRoles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCareerRoles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCareerRolesQueryResult = NonNullable<Awaited<ReturnType<typeof getCareerRoles>>>
+export type GetCareerRolesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List role families and their sub-role cards
+ */
+
+export function useGetCareerRoles<TData = Awaited<ReturnType<typeof getCareerRoles>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCareerRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCareerRolesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCareerRoleUrl = (slug: string,) => {
+
+
+
+
+  return `/api/career/roles/${slug}`
+}
+
+/**
+ * @summary Read one role deep-dive pack
+ */
+export const getCareerRole = async (slug: string, options?: Parameters<typeof customFetch>[1]): Promise<CareerRoleRecord> => {
+
+  return customFetch<CareerRoleRecord>(getGetCareerRoleUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCareerRoleQueryKey = (slug: string,) => {
+    return [
+    `/api/career/roles/${slug}`
+    ] as const;
+    }
+
+
+export const getGetCareerRoleQueryOptions = <TData = Awaited<ReturnType<typeof getCareerRole>>, TError = ErrorType<void>>(slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCareerRole>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCareerRoleQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCareerRole>>> = ({ signal }) => getCareerRole(slug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCareerRole>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCareerRoleQueryResult = NonNullable<Awaited<ReturnType<typeof getCareerRole>>>
+export type GetCareerRoleQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read one role deep-dive pack
+ */
+
+export function useGetCareerRole<TData = Awaited<ReturnType<typeof getCareerRole>>, TError = ErrorType<void>>(
+ slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCareerRole>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCareerRoleQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

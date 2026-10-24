@@ -190,6 +190,44 @@ paths:
                 $ref: "#/components/schemas/RecommendationResult"
         "401":
           description: Authentication required
+  /career/roles:
+    get:
+      operationId: getCareerRoles
+      tags: [career]
+      summary: List role families and their sub-role cards
+      responses:
+        "200":
+          description: Seeded role catalog
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerRoleCatalog"
+        "401":
+          description: Authentication required
+  /career/roles/{slug}:
+    get:
+      operationId: getCareerRole
+      tags: [career]
+      summary: Read one role deep-dive pack
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        "200":
+          description: Role deep-dive content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerRoleRecord"
+        "401":
+          description: Authentication required
+        "404":
+          description: Role not found or content is not ready
 components:
   parameters:
     SessionCookie:
@@ -400,4 +438,92 @@ components:
           maxItems: 3
           items:
             $ref: "#/components/schemas/CareerRecommendation"
+    CareerRoleDayBlock:
+      type: object
+      required: [time, activity]
+      properties:
+        time: { type: string }
+        activity: { type: string }
+    CareerRoleJourneyStep:
+      type: object
+      required: [period, focus, evidence]
+      properties:
+        period: { type: string }
+        focus: { type: string }
+        evidence: { type: string }
+    CareerRoleAiImpact:
+      type: object
+      required: [changing, tasksToWatch, humanEdge]
+      properties:
+        changing: { type: string }
+        tasksToWatch:
+          type: array
+          items: { type: string }
+        humanEdge:
+          type: array
+          items: { type: string }
+    CareerRoleEntryRequirements:
+      type: object
+      required: [foundation, helpful, proofOfWork]
+      properties:
+        foundation:
+          type: array
+          items: { type: string }
+        helpful:
+          type: array
+          items: { type: string }
+        proofOfWork:
+          type: array
+          items: { type: string }
+    CareerRoleContent:
+      type: object
+      required: [label, whyItFits, dayInLife, metrics, stakeholders, journey, aiImpact, entryRequirements]
+      properties:
+        label: { type: string, enum: [Illustrative first draft] }
+        whyItFits: { type: string }
+        dayInLife:
+          type: array
+          minItems: 9
+          maxItems: 9
+          items:
+            $ref: "#/components/schemas/CareerRoleDayBlock"
+        metrics:
+          type: array
+          items: { type: string }
+        stakeholders:
+          type: array
+          items: { type: string }
+        journey:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/CareerRoleJourneyStep"
+        aiImpact:
+          $ref: "#/components/schemas/CareerRoleAiImpact"
+        entryRequirements:
+          $ref: "#/components/schemas/CareerRoleEntryRequirements"
+    CareerRoleRecord:
+      type: object
+      required: [slug, familySlug, familyTitle, title, summary, status, sortOrder, content]
+      properties:
+        slug: { type: string }
+        familySlug: { type: string }
+        familyTitle: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        status: { type: string, enum: [illustrative, coming] }
+        sortOrder: { type: integer }
+        content:
+          oneOf:
+            - $ref: "#/components/schemas/CareerRoleContent"
+            - type: "null"
+    CareerRoleCatalog:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerRoleRecord"
 

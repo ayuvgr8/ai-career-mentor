@@ -10,6 +10,7 @@ import type { CareerRoleContentLabel } from './careerRoleContentLabel';
 import type { CareerRoleDayBlock } from './careerRoleDayBlock';
 import type { CareerRoleEntryRequirements } from './careerRoleEntryRequirements';
 import type { CareerRoleJourneyStep } from './careerRoleJourneyStep';
+import type { CareerRolePracticeProject } from './careerRolePracticeProject';
 
 export interface CareerRoleContent {
   /** @nullable */
@@ -29,4 +30,5 @@ export interface CareerRoleContent {
   journey: CareerRoleJourneyStep[];
   aiImpact: CareerRoleAiImpact;
   entryRequirements: CareerRoleEntryRequirements;
+  practiceProject?: CareerRolePracticeProject;
 }

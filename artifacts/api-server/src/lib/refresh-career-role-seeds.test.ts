@@ -47,6 +47,21 @@ test("refresh inserts guides, replaces drafts, and preserves approved copy", asy
     await refreshCareerRoleSeeds(tx, [{ ...incoming, status: "approved", content: { ...approved, whyItFits: "New seed copy" } }]);
     assert.deepEqual(await read(), before, "new approved seed cannot overwrite reviewed copy");
 
+    const { practiceProject: _project, ...legacyApproved } = approved;
+    await tx.update(careerRolesTable).set({ content: legacyApproved })
+      .where(eq(careerRolesTable.slug, base.slug));
+    const legacyBefore = await read();
+    await refreshCareerRoleSeeds(tx, [base]);
+    const backfilled = await read();
+    assert.deepEqual(backfilled, {
+      ...legacyBefore,
+      updatedAt: backfilled.updatedAt,
+      content: { ...legacyApproved, practiceProject: base.content.practiceProject },
+    }, "backfill only the project, preserving all reviewed fields and approval");
+    assert.ok(backfilled.updatedAt >= legacyBefore.updatedAt);
+    await refreshCareerRoleSeeds(tx, [incoming]);
+    assert.deepEqual(await read(), backfilled, "project backfill is idempotent");
+
     const cases = [
       { status: "coming", label: null, contentMissing: true, updates: true },
       { status: "illustrative", label: null, updates: false },

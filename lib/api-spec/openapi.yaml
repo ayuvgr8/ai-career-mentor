@@ -539,6 +539,20 @@ components:
         proofOfWork:
           type: array
           items: { type: string }
+    CareerRolePracticeProject:
+      type: object
+      required: [title, timebox, materials, steps, deliverable, reflection]
+      properties:
+        title: { type: string }
+        timebox: { type: string }
+        materials:
+          type: array
+          items: { type: string }
+        steps:
+          type: array
+          items: { type: string }
+        deliverable: { type: string }
+        reflection: { type: string }
     CareerRoleContent:
       type: object
       required: [label, whyItFits, dayInLife, metrics, stakeholders, journey, aiImpact, entryRequirements]
@@ -567,6 +581,8 @@ components:
           $ref: "#/components/schemas/CareerRoleAiImpact"
         entryRequirements:
           $ref: "#/components/schemas/CareerRoleEntryRequirements"
+        practiceProject:
+          $ref: "#/components/schemas/CareerRolePracticeProject"
     CareerRoleRecord:
       type: object
       required: [slug, familySlug, familyTitle, title, summary, status, sortOrder, content]

@@ -397,7 +397,15 @@ export const GetCareerRolesResponse = zod.object({
   "foundation": zod.array(zod.string()),
   "helpful": zod.array(zod.string()),
   "proofOfWork": zod.array(zod.string())
-})
+}),
+  "practiceProject": zod.object({
+  "title": zod.string(),
+  "timebox": zod.string(),
+  "materials": zod.array(zod.string()),
+  "steps": zod.array(zod.string()),
+  "deliverable": zod.string(),
+  "reflection": zod.string()
+}).optional()
 }),zod.null()])
 }))
 })
@@ -453,7 +461,15 @@ export const GetCareerRoleResponse = zod.object({
   "foundation": zod.array(zod.string()),
   "helpful": zod.array(zod.string()),
   "proofOfWork": zod.array(zod.string())
-})
+}),
+  "practiceProject": zod.object({
+  "title": zod.string(),
+  "timebox": zod.string(),
+  "materials": zod.array(zod.string()),
+  "steps": zod.array(zod.string()),
+  "deliverable": zod.string(),
+  "reflection": zod.string()
+}).optional()
 }),zod.null()])
 })
 

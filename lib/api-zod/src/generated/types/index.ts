@@ -24,6 +24,7 @@ export * from './careerRoleContentLabel';
 export * from './careerRoleDayBlock';
 export * from './careerRoleEntryRequirements';
 export * from './careerRoleJourneyStep';
+export * from './careerRolePracticeProject';
 export * from './careerRoleRecord';
 export * from './careerRoleRecordStatus';
 export * from './deleteProfileResult';

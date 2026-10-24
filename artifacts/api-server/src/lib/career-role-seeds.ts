@@ -1,4 +1,5 @@
 import type { InsertCareerRole, CareerRoleContent } from "@workspace/db";
+import { careerPracticeProjects } from "./career-practice-projects";
 
 function illustrativeContent(
   whyItFits: string,
@@ -44,7 +45,7 @@ const illustrativeRole = (
   content,
 });
 
-export const careerRoleSeeds: InsertCareerRole[] = [
+const baseCareerRoleSeeds: InsertCareerRole[] = [
   {
     slug: "front-end-engineer",
     familySlug: "software-engineer",
@@ -1106,3 +1107,11 @@ export const careerRoleSeeds: InsertCareerRole[] = [
     ),
   ),
 ];
+
+export const careerRoleSeeds: InsertCareerRole[] = baseCareerRoleSeeds.map((role) => {
+  const practiceProject = careerPracticeProjects[role.slug];
+  if (!practiceProject || !role.content) {
+    throw new Error(`Missing practice project or guide content for ${role.slug}`);
+  }
+  return { ...role, content: { ...role.content, practiceProject } };
+});

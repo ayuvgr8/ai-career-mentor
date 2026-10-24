@@ -24,6 +24,15 @@ export interface CareerRoleEntryRequirements {
   proofOfWork: string[];
 }
 
+export interface CareerRolePracticeProject {
+  title: string;
+  timebox: string;
+  materials: string[];
+  steps: string[];
+  deliverable: string;
+  reflection: string;
+}
+
 export interface CareerRoleContent {
   label: string | null;
   whyItFits: string;
@@ -33,6 +42,7 @@ export interface CareerRoleContent {
   journey: CareerRoleJourneyStep[];
   aiImpact: CareerRoleAiImpact;
   entryRequirements: CareerRoleEntryRequirements;
+  practiceProject?: CareerRolePracticeProject;
 }
 
 export const careerRolesTable = pgTable(

@@ -54,6 +54,15 @@ for (const role of careerRoleSeeds) {
     textList(content.aiImpact.tasksToWatch, "aiImpact.tasksToWatch");
     textList(content.aiImpact.humanEdge, "aiImpact.humanEdge");
     assert.ok(content.entryRequirements, "entry requirements");
+    assert.ok(content.practiceProject, "practice project");
+    for (const key of ["title", "timebox", "deliverable", "reflection"] as const) {
+      text(content.practiceProject[key], `practiceProject.${key}`);
+    }
+    textList(content.practiceProject.materials, "practiceProject.materials");
+    assert.equal(content.practiceProject.steps.length, 3, "three bounded practice steps");
+    textList(content.practiceProject.steps, "practiceProject.steps");
+    assert.match(content.practiceProject.timebox, /^\d+–\d+ hours$/);
+    assert.match(content.practiceProject.deliverable, /^Stop at /);
     for (const key of ["foundation", "helpful", "proofOfWork"] as const) {
       textList(content.entryRequirements[key], `entryRequirements.${key}`);
     }

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import NotFound from '@/pages/not-found';
 import { RoleMentorChat } from '@/components/RoleMentorChat';
+import { RoleCompare } from '@/components/RoleCompare';
 
 const queryClient = new QueryClient();
 
@@ -461,6 +462,7 @@ function RoleCatalog() {
           <span className="relative mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary">Choose a direction <ArrowRight size={16} /></span>
         </Link>;
       })}</div>}
+    {families.length > 0 && <RoleCompare roles={catalog.data?.roles || []} />}
   </div></Frame>;
 }
 

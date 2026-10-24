@@ -28,7 +28,7 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 import { asc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { SESSION_COOKIE, getSessionId } from "../lib/auth";
-import { careerRoleSeeds } from "../lib/career-role-seeds";
+import { refreshCareerRoleSeeds } from "../lib/refresh-career-role-seeds";
 import { readResumePdf, ResumePdfError } from "../lib/resume-pdf";
 import { roleMentorSystemPrompt } from "../lib/role-mentor";
 
@@ -74,18 +74,7 @@ function requireUser(req: Request, res: Response): string | null {
 
 async function ensureCareerRoleSeeds(): Promise<void> {
   if (!roleSeedPromise) {
-    roleSeedPromise = db
-      .insert(careerRolesTable)
-      .values(careerRoleSeeds)
-      .onConflictDoUpdate({
-        target: careerRolesTable.slug,
-        set: {
-          status: sql`excluded.status`,
-          content: sql`excluded.content`,
-        },
-        where: sql`${careerRolesTable.status} = 'coming' OR (${careerRolesTable.status} = 'illustrative' AND ${careerRolesTable.content}->>'label' = 'Illustrative first draft')`,
-      })
-      .then(() => undefined);
+    roleSeedPromise = refreshCareerRoleSeeds(db).then(() => undefined);
   }
   try {
     await roleSeedPromise;

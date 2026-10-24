@@ -6,8 +6,12 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { authMiddleware } from "./middlewares/authMiddleware";
+import { isAllowedOrigin } from "./lib/origin";
 
 const app: Express = express();
+// Hosted platforms (Render, Vercel) terminate TLS at a proxy. Without this,
+// req.ip is the proxy for every visitor and per-user limits become global.
+app.set("trust proxy", process.env.TRUST_PROXY ?? (process.env.NODE_ENV === "production" ? 1 : false));
 
 app.use(
   pinoHttp({
@@ -32,12 +36,18 @@ app.disable('x-powered-by');
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  // The optional voice mentor is the only feature that may use the microphone.
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   if (req.path.startsWith('/api')) res.setHeader('Cache-Control', 'no-store');
   // Cookie-authenticated writes are same-origin only, including the optional guest session.
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     const origin = req.get('origin');
-    const expected = process.env.APP_ORIGIN ? new URL(process.env.APP_ORIGIN).origin : `${req.protocol}://${req.get('host')}`;
-    if (req.get('sec-fetch-site') === 'cross-site' || (origin && origin !== expected)) { res.status(403).json({ error: 'Cross-origin requests are not allowed.' }); return; }
+    if (req.get('sec-fetch-site') === 'cross-site' || (origin && !isAllowedOrigin(origin, req))) { res.status(403).json({ error: 'Cross-origin requests are not allowed.' }); return; }
   }
   next();
 });

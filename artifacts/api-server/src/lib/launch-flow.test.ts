@@ -7,6 +7,7 @@ import {
   pool,
   usersTable,
   careerPlansTable,
+  careerMatchesTable,
   careerProfilesTable,
   planReviewsTable,
 } from "@workspace/db";
@@ -178,6 +179,7 @@ test("authenticated launch flow, consent, versions, isolation and deletion", asy
   let workflowStarts = 0;
   let invalidPlan = false;
   let providerUnavailable = false;
+  let manyOptions = false;
   let decision: "approve" | "reject" | null = null;
   const outbound: string[] = [];
   const packages: Record<string, unknown>[] = [];
@@ -212,7 +214,9 @@ test("authenticated launch flow, consent, versions, isolation and deletion", asy
         output = {
           topic: "current-work",
           question: "Tumhara current kaam kya hai?",
-          options: ["Building", "Planning", "People"],
+          options: manyOptions
+            ? ["Building", "Planning", "People", "Writing", "No idea yet"]
+            : ["Building", "Planning", "People"],
           allowFreeText: true,
         };
       else if (system.includes("Synthesize only")) output = profile;
@@ -472,6 +476,63 @@ test("authenticated launch flow, consent, versions, isolation and deletion", asy
       },
     );
     await t.test(
+      "questions stay within five options and fall back when the provider fails",
+      async () => {
+        const start = {
+          persona: "professional",
+          draft: { ...profile, persona: "professional" },
+          answers: [],
+        };
+        manyOptions = true;
+        const busy = await api("/career/questions/next", "POST", start, cookie);
+        assert.equal(busy.status, 200);
+        const options = (await json<{ options: string[] }>(busy)).options;
+        assert.ok(options.length <= 5);
+        assert.equal(options.filter((o) => /^no idea/i.test(o)).length, 1);
+        manyOptions = false;
+        providerUnavailable = true;
+        const fallback = await api("/career/questions/next", "POST", start, cookie);
+        providerUnavailable = false;
+        assert.equal(fallback.status, 200);
+        const curated = await json<{ topic: string; question: string; options: string[] }>(fallback);
+        assert.equal(curated.topic, "current-work");
+        assert.ok(curated.question.length > 0 && curated.options.length <= 5);
+      },
+    );
+    await t.test(
+      "match screen saves top three, reactions and opened guides privately",
+      async () => {
+        const saved = await json<{ recommendations: unknown[]; stale: boolean; reactions: Record<string, string> }>(
+          await api("/career/matches", "GET", undefined, cookie),
+        );
+        assert.equal(saved.recommendations.length, 3);
+        assert.equal(saved.stale, false);
+        assert.equal(
+          (await api("/career/matches/reactions", "PUT", { role: "Marketing", reaction: "not-for-me" }, cookie)).status,
+          200,
+        );
+        assert.equal(
+          (await api("/career/matches/reactions", "PUT", { role: "Astronaut", reaction: "interested" }, cookie)).status,
+          400,
+        );
+        assert.equal(
+          (await api("/career/matches/opened", "POST", { slug: "product-design" }, cookie)).status,
+          200,
+        );
+        const after = await json<{ reactions: Record<string, string>; opened: string[] }>(
+          await api("/career/matches", "GET", undefined, cookie),
+        );
+        assert.equal(after.reactions.Marketing, "not-for-me");
+        assert.deepEqual(after.opened, ["product-design"]);
+        const theirs = await json<{ recommendations: unknown[]; reactions: Record<string, string> }>(
+          await api("/career/matches", "GET", undefined, other),
+        );
+        assert.equal(theirs.recommendations.length, 0);
+        assert.deepEqual(theirs.reactions, {});
+        assert.equal((await api("/career/matches")).status, 401);
+      },
+    );
+    await t.test(
       "generates, persists, enforces limits and preserves an existing plan on failure",
       async () => {
         const response = await api(
@@ -717,6 +778,10 @@ test("authenticated launch flow, consent, versions, isolation and deletion", asy
           cookie,
         );
         assert.equal(
+          (await json<{ stale: boolean }>(await api("/career/matches", "GET", undefined, cookie))).stale,
+          true,
+        );
+        assert.equal(
           (
             await api(
               `/career/plans/${plan.id}/review-package`,
@@ -767,6 +832,15 @@ test("authenticated launch flow, consent, versions, isolation and deletion", asy
               .select()
               .from(careerProfilesTable)
               .where(eq(careerProfilesTable.userId, ownerIds[0]))
+          ).length,
+          0,
+        );
+        assert.equal(
+          (
+            await db
+              .select()
+              .from(careerMatchesTable)
+              .where(eq(careerMatchesTable.userId, ownerIds[0]))
           ).length,
           0,
         );

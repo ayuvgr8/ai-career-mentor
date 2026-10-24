@@ -1,9 +1,12 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { pool } from '@workspace/db';
+import { publicOrigin } from "./lib/origin";
+import { db, pool, sessionsTable } from '@workspace/db';
+import { lt } from 'drizzle-orm';
 
-if (process.env.NODE_ENV === 'production' && (!process.env.APP_ORIGIN || new URL(process.env.APP_ORIGIN).protocol !== 'https:')) {
-  throw new Error('Production requires APP_ORIGIN with the public HTTPS origin.');
+const origin = publicOrigin();
+if (process.env.NODE_ENV === 'production' && (!origin || !origin.startsWith('https://'))) {
+  throw new Error('Production requires APP_ORIGIN (or Render\'s RENDER_EXTERNAL_URL) with the public HTTPS origin.');
 }
 
 // 5050 avoids macOS ControlCenter/AirPlay's common port-5000 reservation.
@@ -30,6 +33,14 @@ const server = app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+// Expired sessions are rejected on read; this sweep keeps the table small.
+const sweepSessions = () => {
+  db.delete(sessionsTable).where(lt(sessionsTable.expire, new Date()))
+    .catch((err: unknown) => logger.warn({ errorName: err instanceof Error ? err.name : 'Error' }, 'Session sweep failed'));
+};
+setInterval(sweepSessions, 60 * 60 * 1000).unref();
+sweepSessions();
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.once(signal, () => {

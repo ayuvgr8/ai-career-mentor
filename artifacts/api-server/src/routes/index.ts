@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import careerRouter from "./career";
 import plansRouter from './plans';
+import matchesRouter from './matches';
 import voiceRouter from './voice';
 import agenticLlmRouter from './agentic-llm';
 import { requestLimit } from '../middlewares/requestLimits';
@@ -18,6 +19,7 @@ router.use('/career', (req, res, next) => {
 });
 router.use(careerRouter);
 router.use(plansRouter);
+router.use(matchesRouter);
 router.use(voiceRouter);
 router.use(agenticLlmRouter);
 

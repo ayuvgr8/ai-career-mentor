@@ -1,24 +1,25 @@
 # Render Blueprint for the Rolevo web application.
 # Keep the web service and database in the same region so DATABASE_URL uses
-# Render's private network. Change both APP_ORIGIN and the Replit callback if
-# you rename the service or attach a custom domain.
+# Render's private network. The app uses Render's automatic RENDER_EXTERNAL_URL
+# as its public origin; set APP_ORIGIN only for a custom domain (and update the
+# Replit callback to match).
 services:
   - type: web
     name: rolevo-career-mentor
     runtime: node
     region: singapore
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm start
+    # The lockfile needs pnpm 10 (older pnpm rejects its overrides, and pnpm 9
+    # also drops devDependencies under NODE_ENV=production). Corepack activates
+    # the version pinned in package.json's packageManager field.
+    buildCommand: corepack enable pnpm && pnpm install --frozen-lockfile && pnpm build
+    # Migrations are idempotent and lock-guarded, so every boot can apply them.
+    startCommand: pnpm db:migrate && pnpm start
     healthCheckPath: /api/healthz
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
-      # This is the initial Render domain for the service name above.
-      # Replace it with the HTTPS custom domain if one is later attached.
-      - key: APP_ORIGIN
-        value: https://rolevo-career-mentor.onrender.com
       - key: DATABASE_URL
         fromDatabase:
           name: rolevo-db
